@@ -1,3 +1,7 @@
+# List of libraries required to run the project.
+# To install, run: pip install -r Requirements.txt
+
+# Library declaration 
 import pandas as pd
 import random
 import math
