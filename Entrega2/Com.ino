@@ -1,3 +1,15 @@
+"""
+ * @file com.ino
+ * @date 17/5/2025
+ * @author Hector Tovar
+ * 
+ * @brief This code is for the ESP8266 to send data to a Raspberry Pi using MQTT.
+ * The ESP8266 reads data from the STM32 via UART and sends it to the Raspberry Pi.
+ * The Raspberry Pi will then process the data and send it to the cloud.
+"""
+
+
+
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 

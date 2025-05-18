@@ -1,3 +1,13 @@
+"""
+ * @file graphs.py
+ * @date 17/5/2025
+ * @author Hector Tovar
+ * 
+ * @brief this script visualizes real-time data from a tractor telemetry system using MQTT and PySimpleGUI.
+ * This code should be run in a Python environment with the required libraries installed.
+ * Also this script should be running in the Raspberry Pi.
+"""
+
 import csv
 import PySimpleGUI as sg
 import matplotlib.pyplot as plt
