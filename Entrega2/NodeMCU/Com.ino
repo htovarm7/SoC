@@ -8,8 +8,6 @@
  * The Raspberry Pi will then process the data and send it to the cloud.
 """
 
-
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
