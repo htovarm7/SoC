@@ -23,6 +23,7 @@ int main(void)
 
 	for(;;) {
 	    val = USER_ADC_Read();
+		Update_LEDs(val);
 
 	    if(GPIOA->IDR & (0x1UL << 8U)){
 	        button_status = 1;
@@ -70,17 +71,39 @@ void USER_RCC_Init(void){
 		RCC->CFGR &= ~(0x1UL << 11U);
 }
 
-// Configure PA5 as output (LED), PA8 as input with pull-down (button)
 void USER_GPIO_Init(void){
-		// // PA5 as output (LED)
-		// GPIOA->MODER &= ~(0x3UL << (5U * 2)); // Clear mode bits
-		// GPIOA->MODER |=  (0x1UL << (5U * 2)); // Set as output
-		// GPIOA->OTYPER &= ~(0x1UL << 5U);      // Push-pull
-		// GPIOA->PUPDR  &= ~(0x3UL << (5U * 2)); // No pull-up/down
-		// GPIOA->ODR &= ~(0x1UL << 5U);         // LED off initially
+    // Configurar PA6 y PA7 como salida
+    GPIOA->MODER &= ~((0x3UL << (6U * 2)) | (0x3UL << (7U * 2))); // Limpiar bits
+    GPIOA->MODER |=  ((0x1UL << (6U * 2)) | (0x1UL << (7U * 2))); // Salida
+    GPIOA->OTYPER &= ~((0x1UL << 6U) | (0x1UL << 7U));            // Push-pull
+    GPIOA->PUPDR  &= ~((0x3UL << (6U * 2)) | (0x3UL << (7U * 2))); // Sin pull
 
-		// PA8 as input with pull-down
-		GPIOA->MODER &= ~(0x3UL << 16U); // Set PA8 as input
-		GPIOA->PUPDR &= ~(0x3UL << 16U); // Clear pull-up/down
-		GPIOA->PUPDR |=  (0x2UL << 16U); // Enable pull-down
+    // Encender PA6 y PA7
+    GPIOA->ODR |= (1UL << 6U) | (1UL << 7U);
+
+    // Configurar PB0, PB1 y PB2 como salida
+    GPIOB->MODER &= ~((0x3UL << (0U * 2)) | (0x3UL << (1U * 2)) | (0x3UL << (2U * 2))); // Limpiar
+    GPIOB->MODER |=  ((0x1UL << (0U * 2)) | (0x1UL << (1U * 2)) | (0x1UL << (2U * 2))); // Salida
+    GPIOB->OTYPER &= ~((0x1UL << 0U) | (0x1UL << 1U) | (0x1UL << 2U));                 // Push-pull
+    GPIOB->PUPDR  &= ~((0x3UL << (0U * 2)) | (0x3UL << (1U * 2)) | (0x3UL << (2U * 2))); // Sin pull
+
+    // Encender PB0, PB1 y PB2
+    GPIOB->ODR |= (1UL << 0U) | (1UL << 1U) | (1UL << 2U);
+
+    // Configurar PA8 como entrada con pull-down
+    GPIOA->MODER &= ~(0x3UL << 16U); // PA8 como entrada
+    GPIOA->PUPDR &= ~(0x3UL << 16U); // Limpiar pull
+    GPIOA->PUPDR |=  (0x2UL << 16U); // Pull-down
+}
+
+void Update_LEDs(uint16_t adc_val){
+    // Limpiar todos los LEDs
+    GPIOA->ODR &= ~((1UL << 6U) | (1UL << 7U));              // PA6 y PA7
+    GPIOB->ODR &= ~((1UL << 0U) | (1UL << 1U) | (1UL << 2U)); // PB0, PB1, PB2
+
+    if (adc_val > 683)  GPIOB->ODR |= (1UL << 0U); // LED 1
+    if (adc_val > 1365) GPIOB->ODR |= (1UL << 1U); // LED 2
+    if (adc_val > 2048) GPIOB->ODR |= (1UL << 2U); // LED 3
+    if (adc_val > 2730) GPIOA->ODR |= (1UL << 6U); // LED 4
+    if (adc_val > 3412) GPIOA->ODR |= (1UL << 7U); // LED 5
 }
