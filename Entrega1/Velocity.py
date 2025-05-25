@@ -1,12 +1,16 @@
 import random
 import math
 import csv
+import os
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from datetime import datetime
 
+
+
 # --- CSV File ---
-CSV_FILENAME = "datos_tractor.csv"
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILENAME = os.path.join(CURRENT_DIR, "datos_tractor.csv")
 CSV_HEADER = ["timestamp", "velocidad_angular", "radio_rueda", "relacion_transmision", "rpm"]
 
 # --- Initialization of lists for plotting ---
