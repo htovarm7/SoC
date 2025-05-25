@@ -1,0 +1,12 @@
+../Src/lcd.c:18:6:LCD_Init	24	static
+../Src/lcd.c:78:6:LCD_Out_Data4	16	static
+../Src/lcd.c:85:6:LCD_Write_Byte	16	static
+../Src/lcd.c:93:6:LCD_Write_Cmd	16	static
+../Src/lcd.c:98:6:LCD_Put_Char	16	static
+../Src/lcd.c:103:6:LCD_Set_Cursor	24	static
+../Src/lcd.c:112:6:LCD_Put_Str	32	static
+../Src/lcd.c:117:6:LCD_Put_Num	40	static
+../Src/lcd.c:136:6:LCD_Busy	16	static
+../Src/lcd.c:155:6:LCD_Pulse_EN	8	static
+../Src/lcd.c:164:6:LCD_BarGraphic	24	static
+../Src/lcd.c:177:6:LCD_BarGraphicXY	32	static

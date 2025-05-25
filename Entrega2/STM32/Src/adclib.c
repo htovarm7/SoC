@@ -25,7 +25,8 @@ void USER_ADC_Init(void) {
     ADC->CFGR1 &= ~(0x3 << 3);  // 12-bit resolution
 
     // Sampling time
-    ADC->SMPR |= ~(0x7 << 0);   // Sampling time = shortest
+    ADC->SMPR &= ~(0x7 << 0);   // Clear bits
+    ADC->SMPR |= (0x4 << 0);    // Moderate sampling time (e.g., 7.5 ADC clk)
 
     ADC->ISR &= ~( 0x1UL << 13U );
     ADC->CFGR1 &= ~( 0x1UL << 21U ) & ~( 0x1UL << 2U );
@@ -36,9 +37,8 @@ void USER_ADC_Init(void) {
     while( !(ADC->ISR & (0x1UL << 13U)));
 
     // Enable internal regulator
-
     ADC->CR |= (1 << 28);       // ADVREGEN
-    SysTick_Delay(1);            // Delay > 10 us
+    SysTick_Delay(100);            // Delay > 10 us
 
     // Calibration
     while (!USER_ADC_Calibration());
