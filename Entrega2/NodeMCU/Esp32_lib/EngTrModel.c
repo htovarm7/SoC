@@ -302,6 +302,9 @@ void EngTrModel_step(void)
   real_T InterpUp;
 
   /* DiscreteIntegrator: '<S1>/Discrete-Time Integrator' */
+  if(EngTrModel_DW.DiscreteTimeIntegrator_DSTATE < 0 ){
+    EngTrModel_DW.DiscreteTimeIntegrator_DSTATE = 0;
+  }
   EngTrModel_B.EngineRPM = EngTrModel_DW.DiscreteTimeIntegrator_DSTATE;
 
   /* Outport: '<Root>/EngineSpeed' */
@@ -313,9 +316,13 @@ void EngTrModel_step(void)
    */
   /* Unit Conversion - from: ft/min to: mph
      Expression: output = (0.0113636*input) + (0) */
+  if((6.2831853071795862 * EngTrModel_DW.WheelSpeed_DSTATE * 0.011363636363636364)<0){
+    EngTrModel_B.VehicleSpeed = 0;
+  }
+  else{
   EngTrModel_B.VehicleSpeed = 6.2831853071795862 *
-    EngTrModel_DW.WheelSpeed_DSTATE * 0.011363636363636364;
-
+  EngTrModel_DW.WheelSpeed_DSTATE * 0.011363636363636364;
+  }
   /* Chart: '<Root>/ShiftLogic' */
   sfEvent = EngTrModel_CALL_EVENT;
   if (EngTrModel_DW.temporalCounter_i1 < MAX_uint32_T) {

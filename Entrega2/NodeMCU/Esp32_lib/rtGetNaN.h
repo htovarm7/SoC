@@ -1,5 +1,5 @@
 /*
- * File: EngTrModel_types.h
+ * File: rtGetNaN.h
  *
  * Code generated for Simulink model 'EngTrModel'.
  *
@@ -13,13 +13,16 @@
  * Validation result: Not run
  */
 
-#ifndef RTW_HEADER_EngTrModel_types_h_
-#define RTW_HEADER_EngTrModel_types_h_
+#ifndef RTW_HEADER_rtGetNaN_h_
+#define RTW_HEADER_rtGetNaN_h_
+#include <stddef.h>
+#include "rtwtypes.h"
+#include "rt_nonfinite.h"
 
-/* Forward declaration for rtModel */
-typedef struct tag_RTM_EngTrModel_T RT_MODEL_EngTrModel_T;
+extern real_T rtGetNaN(void);
+extern real32_T rtGetNaNF(void);
 
-#endif                                 /* RTW_HEADER_EngTrModel_types_h_ */
+#endif                                 /* RTW_HEADER_rtGetNaN_h_ */
 
 /*
  * File trailer for generated code.

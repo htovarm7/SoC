@@ -5,6 +5,10 @@
 #include "lcd.h"
 #include "systicklib.h"
 #include "adclib.h"
+#include "stdio.h"
+
+uint8_t uart_rx_buffer[128];
+uint16_t uart_rx_index = 0;
 
 int main(void)
 {
@@ -15,18 +19,20 @@ int main(void)
 	USER_GPIO_Init();
 	LCD_Init();
 	USER_ADC_Init();
+//	exit INIT <---------------
 
 	GPIOB->ODR |= (1UL << 0U); // PB0
 	GPIOB->ODR |= (1UL << 1U); // PB1
 	GPIOB->ODR |= (1UL << 2U); // PB2
 	GPIOA->ODR |= (1UL << 6U); // PA6
 
-	uint16_t val = 0, prev_val = 0xFFFF;
+	uint16_t val, prev_val = 0xFFFF;
 	uint8_t button_status = 0, prev_button = 0xFF;
 
 	LCD_Clear();
 
 	for(;;) {
+		// UPDATE_SERIAL();
 	    val = USER_ADC_Read();
 		// Update_LEDs(val);
 
@@ -54,16 +60,23 @@ int main(void)
 	    }
 
 	    // Enviar UART (si lo necesitas)
-	    USER_USART1_Send_8bit(button_status);
+	    // USER_USART1_Send_8bit(button_status);
+		if (val != prev_val || button_status != prev_button) {
+            char buffer[64];
+            sprintf(buffer, "ADC:%d,BTN:%d\n", val, button_status); // Formato simple
+            USER_USART1_Send_String(buffer);
 
-	    SysTick_Delay(50);  // Una pequeña pausa para evitar sobrecarga
+            prev_val = val;
+            prev_button = button_status;
+        }
+	    SysTick_Delay(100);  // Una pequeña pausa para evitar sobrecarga
 	}
 }
 
 // Configure system clock and enable GPIOA peripheral
 void USER_RCC_Init(void){
 		RCC->IOPENR |= (0x1UL << 0U); // Enable GPIOA clock
-
+		// RCC->AHBENR |= (0x1UL << 29U); // Enable ADC clock
 		// Flash latency and clock setup
 		FLASH->ACR &= ~(0x6UL << 0U);
 		FLASH->ACR |=  (0x1UL << 0U);
@@ -99,6 +112,9 @@ void USER_GPIO_Init(void){
     GPIOA->MODER &= ~(0x3UL << 16U); // PA8 como entrada
     GPIOA->PUPDR &= ~(0x3UL << 16U); // Limpiar pull
     GPIOA->PUPDR |=  (0x2UL << 16U); // Pull-down
+
+
+	GPIOA->MODER |= (0x3UL << 0U); // PA0 as analogic
 }
 
 // void Update_LEDs(uint16_t adc_val){
@@ -111,4 +127,19 @@ void USER_GPIO_Init(void){
 //     if (adc_val > 2048) GPIOB->ODR |= (1UL << 2U); // LED 3
 //     if (adc_val > 2730) GPIOA->ODR |= (1UL << 6U); // LED 4
 //     if (adc_val > 3412) GPIOA->ODR |= (1UL << 7U); // LED 5
+// }
+
+// void UPDATE_SERIAL() {
+//     uint8_t data;
+//     while (USER_UART1_Receive_8bit(&data)) { // Lee todos los bytes disponibles
+//         if (uart_rx_index < 127) {
+//             uart_rx_buffer[uart_rx_index++] = data;
+//             if (data == '\n') { // Fin de mensaje (JSON termina con \n)
+//                 process_rx_message();
+//                 uart_rx_index = 0; // Reset buffer
+//             }
+//         } else {
+//             uart_rx_index = 0; // Overflow: reinicia
+//         }
+//     }
 // }

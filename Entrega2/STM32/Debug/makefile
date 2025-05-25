@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (12.3.rel1)
+# Toolchain: GNU Tools for STM32 (13.3.rel1)
 ################################################################################
 
 -include ../makefile.init
@@ -59,8 +59,8 @@ all: main-build
 main-build: entrega2.elf secondary-outputs
 
 # Tool invocations
-entrega2.elf entrega2.map: $(OBJS) $(USER_OBJS) C:\Users\soyhe\Desktop\STM32\entrega2\STM32C031C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "entrega2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\soyhe\Desktop\STM32\entrega2\STM32C031C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="entrega2.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+entrega2.elf entrega2.map: $(OBJS) $(USER_OBJS) C:\Users\jldm-\OneDrive\ -\ Instituto\ Tecnologico\ y\ de\ Estudios\ Superiores\ de\ Monterrey\TEC\ CARRERA\Soc\SoC\Entrega2\STM32\STM32C031C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "entrega2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\jldm-\OneDrive - Instituto Tecnologico y de Estudios Superiores de Monterrey\TEC CARRERA\Soc\SoC\Entrega2\STM32\STM32C031C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="entrega2.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

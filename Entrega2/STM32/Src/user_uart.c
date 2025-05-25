@@ -31,7 +31,7 @@ void USER_UART1_Init(void) {
 	// USART1 configuration
 	USART1->CR1 = USART1->CR1 & ~(0x1UL << 28U);  // Disable LIN mode
 	USART1->CR1 = USART1->CR1 & ~(0x1UL << 12U);  // 8 data bits
-	USART1->BRR = 417;                            // Baudrate (example: 115200 @ 48MHz)
+	USART1->BRR = 5000;                            // Baudrate (example: 115200 @ 48MHz)
 	USART1->CR2 = USART1->CR2 & ~(0x3UL << 12U);  // 1 stop bit
 	USART1->CR1 = USART1->CR1 | (0x1UL << 0U);    // Enable USART1
 	USART1->CR1 = USART1->CR1 | (0x1UL << 3U);    // Enable transmission
@@ -68,4 +68,11 @@ uint8_t USER_UART1_Receive_8bit(void) {
 	} else {
 		return '0';                             // If no data, return '0'
 	}
+}
+
+
+void USER_USART1_Send_String(const char *str) {
+    while (*str) {
+        USER_USART1_Send_8bit(*str++); // Envía cada carácter
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * File: rtGetNaN.h
+ * File: rtGetInf.h
  *
  * Code generated for Simulink model 'EngTrModel'.
  *
@@ -13,16 +13,18 @@
  * Validation result: Not run
  */
 
-#ifndef RTW_HEADER_rtGetNaN_h_
-#define RTW_HEADER_rtGetNaN_h_
+#ifndef RTW_HEADER_rtGetInf_h_
+#define RTW_HEADER_rtGetInf_h_
 #include <stddef.h>
 #include "rtwtypes.h"
 #include "rt_nonfinite.h"
 
-extern real_T rtGetNaN(void);
-extern real32_T rtGetNaNF(void);
+extern real_T rtGetInf(void);
+extern real32_T rtGetInfF(void);
+extern real_T rtGetMinusInf(void);
+extern real32_T rtGetMinusInfF(void);
 
-#endif                                 /* RTW_HEADER_rtGetNaN_h_ */
+#endif                                 /* RTW_HEADER_rtGetInf_h_ */
 
 /*
  * File trailer for generated code.
