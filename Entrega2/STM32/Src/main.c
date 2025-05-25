@@ -16,6 +16,11 @@ int main(void)
 	LCD_Init();
 	USER_ADC_Init();
 
+	GPIOB->ODR |= (1UL << 0U); // PB0
+	GPIOB->ODR |= (1UL << 1U); // PB1
+	GPIOB->ODR |= (1UL << 2U); // PB2
+	GPIOA->ODR |= (1UL << 6U); // PA6
+
 	uint16_t val = 0, prev_val = 0xFFFF;
 	uint8_t button_status = 0, prev_button = 0xFF;
 
@@ -23,7 +28,7 @@ int main(void)
 
 	for(;;) {
 	    val = USER_ADC_Read();
-		Update_LEDs(val);
+		// Update_LEDs(val);
 
 	    if(GPIOA->IDR & (0x1UL << 8U)){
 	        button_status = 1;
@@ -96,14 +101,14 @@ void USER_GPIO_Init(void){
     GPIOA->PUPDR |=  (0x2UL << 16U); // Pull-down
 }
 
-void Update_LEDs(uint16_t adc_val){
-    // Limpiar todos los LEDs
-    GPIOA->ODR &= ~((1UL << 6U) | (1UL << 7U));              // PA6 y PA7
-    GPIOB->ODR &= ~((1UL << 0U) | (1UL << 1U) | (1UL << 2U)); // PB0, PB1, PB2
+// void Update_LEDs(uint16_t adc_val){
+//     // Limpiar todos los LEDs
+//     GPIOA->ODR &= ~((1UL << 6U) | (1UL << 7U));              // PA6 y PA7
+//     GPIOB->ODR &= ~((1UL << 0U) | (1UL << 1U) | (1UL << 2U)); // PB0, PB1, PB2
 
-    if (adc_val > 683)  GPIOB->ODR |= (1UL << 0U); // LED 1
-    if (adc_val > 1365) GPIOB->ODR |= (1UL << 1U); // LED 2
-    if (adc_val > 2048) GPIOB->ODR |= (1UL << 2U); // LED 3
-    if (adc_val > 2730) GPIOA->ODR |= (1UL << 6U); // LED 4
-    if (adc_val > 3412) GPIOA->ODR |= (1UL << 7U); // LED 5
-}
+//     if (adc_val > 683)  GPIOB->ODR |= (1UL << 0U); // LED 1
+//     if (adc_val > 1365) GPIOB->ODR |= (1UL << 1U); // LED 2
+//     if (adc_val > 2048) GPIOB->ODR |= (1UL << 2U); // LED 3
+//     if (adc_val > 2730) GPIOA->ODR |= (1UL << 6U); // LED 4
+//     if (adc_val > 3412) GPIOA->ODR |= (1UL << 7U); // LED 5
+// }
