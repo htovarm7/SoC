@@ -1,43 +1,108 @@
-import dash
-from dash import html, dcc
-import plotly.graph_objs as go
-from collections import deque
+import streamlit as st
 import paho.mqtt.client as mqtt
+import matplotlib.pyplot as plt
 import json
+import csv
+import threading
+import time
+from collections import deque
 
-# Almacén de datos
+# MQTT Configuration
+broker_address = "localhost"
+topic_pub = "tractor/inputs"
+topic_sub = "tractor/outputs"
+
+# Data storage
 rpm_data = deque(maxlen=50)
-vel_data = deque(maxlen=50)
+vel_lineal_data = deque(maxlen=50)
 
-# MQTT
+# CSV file
+csv_file = "datos_tractor.csv"
+
+# MQTT callbacks
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code " + str(rc))
+    client.subscribe(topic_sub)
+
 def on_message(client, userdata, msg):
-    data = json.loads(msg.payload.decode())
-    rpm_data.append(data["rpm"])
-    vel_data.append(data["vel_lineal"])
+    try:
+        data = json.loads(msg.payload.decode())
+        rpm = data["rpm"]
+        vel_lineal = data["vel_lineal"]
 
+        rpm_data.append(rpm)
+        vel_lineal_data.append(vel_lineal)
+
+        with open(csv_file, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([rpm, vel_lineal])
+    except Exception as e:
+        print("Error handling message:", e)
+
+# MQTT Client
 client = mqtt.Client()
+client.on_connect = on_connect
 client.on_message = on_message
-client.connect("localhost", 1883, 60)
-client.subscribe("tractor/outputs")
-client.loop_start()
+client.connect(broker_address, 1883, 60)
 
-# Dash App
-app = dash.Dash(__name__)
-app.layout = html.Div([
-    html.H1("Tractor Dashboard"),
-    dcc.Graph(id='live-graph'),
-    dcc.Interval(id='interval-component', interval=1000, n_intervals=0)  # 1 sec
-])
+# Run MQTT loop in background
+def mqtt_loop():
+    client.loop_forever()
 
-@app.callback(
-    dash.dependencies.Output('live-graph', 'figure'),
-    [dash.dependencies.Input('interval-component', 'n_intervals')]
-)
-def update_graph(n):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(y=list(rpm_data), name='RPM'))
-    fig.add_trace(go.Scatter(y=list(vel_data), name='Velocidad Lineal'))
-    return fig
+mqtt_thread = threading.Thread(target=mqtt_loop)
+mqtt_thread.daemon = True
+mqtt_thread.start()
 
-if __name__ == '__main__':
-    app.run_server(debug=True)
+# Streamlit UI
+st.set_page_config(page_title="Tractor Dashboard", layout="centered")
+st.title("🚜 Tractor Control Dashboard")
+
+st.sidebar.header("Input Parameters")
+
+vel_angular = st.sidebar.number_input("Angular Velocity (rad/s)", min_value=0.0, step=0.1)
+trans_ratio = st.sidebar.number_input("Transmission Ratio", min_value=0.1, step=0.1)
+wheel_radius = st.sidebar.number_input("Wheel Radius (m)", min_value=0.0, step=0.01)
+
+if st.sidebar.button("Send"):
+    data = {
+        "velocidad_angular": vel_angular,
+        "relacion_transmision": trans_ratio,
+        "radio_rueda": wheel_radius
+    }
+    client.publish(topic_pub, json.dumps(data))
+    st.sidebar.success(f"Sent: {data}")
+    # Forzar actualización de las gráficas
+    st.experimental_rerun()
+
+# Área de actualización automática
+st.subheader("📊 RPM and Linear Velocity (Live)")
+
+# Usar st.empty() para el contenedor de gráficas
+plot_placeholder = st.empty()
+
+# Función para actualizar gráficas
+def update_plots():
+    with plot_placeholder.container():
+        if rpm_data or vel_lineal_data:  # Solo dibujar si hay datos
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+            if rpm_data:
+                ax1.plot(list(rpm_data), label="RPM", color='tab:blue')
+                ax1.set_ylabel("RPM")
+                ax1.set_title("RPM")
+                ax1.grid(True)
+
+            if vel_lineal_data:
+                ax2.plot(list(vel_lineal_data), label="Linear Velocity (m/s)", color='tab:green')
+                ax2.set_ylabel("Velocity")
+                ax2.set_title("Linear Velocity")
+                ax2.grid(True)
+
+            st.pyplot(fig)
+        else:
+            st.warning("Waiting for data...")
+
+# Bucle principal de la aplicación
+while True:
+    update_plots()
+    time.sleep(1)  # Espera 1 segundo antes de actualizar
