@@ -1,60 +1,94 @@
-# dashboard.py
-import streamlit as st
 import paho.mqtt.client as mqtt
-import pandas as pd
-import time
 import json
-from datetime import datetime
+import PySimpleGUI as sg
+import matplotlib.pyplot as plt
+import csv
 
-# MQTT settings
-MQTT_BROKER = "localhost"
-TOPIC_SUB = "sensor/data"
-TOPIC_PUB = "control/input"
+# MQTT configuration
+broker_address = "localhost"
+topic_pub = "tractor/inputs"
+topic_sub = "tractor/outputs"
 
-# CSV storage
-CSV_FILE = "data.csv"
+rpm_data = []
+vel_lineal_data = []
 
-# MQTT callbacks
+# Callback functions
 def on_connect(client, userdata, flags, rc):
-    client.subscribe(TOPIC_SUB)
+    print("Connected with result code " + str(rc))
+    client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
-    payload = msg.payload.decode()
-    try:
-        data = json.loads(payload)
-        timestamp = datetime.now().isoformat()
-        data["timestamp"] = timestamp
-        df = pd.DataFrame([data])
-        df.to_csv(CSV_FILE, mode='a', header=not os.path.exists(CSV_FILE), index=False)
-        st.session_state['latest_data'] = data
-    except Exception as e:
-        print("Error processing message:", e)
+    print(f"Message received: {msg.payload.decode()}")
+    data = json.loads(msg.payload.decode())
+    rpm = data["rpm"]
+    vel_lineal = data["vel_lineal"]
 
-# Init MQTT client
+    rpm_data.append(rpm)
+    vel_lineal_data.append(vel_lineal)
+
+    with open('datos_tractor.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([rpm, vel_lineal])
+
+    plt.clf()
+    plt.subplot(2, 1, 1)
+    plt.plot(rpm_data, label='RPM')
+    plt.xlabel('Measurements')
+    plt.ylabel('Revolutions per minute')
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(vel_lineal_data, label='Linear Velocity (m/s)')
+    plt.xlabel('Measurements')
+    plt.ylabel('Linear Velocity')
+    plt.legend()
+
+    plt.pause(0.1)
+
+# MQTT client setup
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
-client.connect(MQTT_BROKER, 1883, 60)
+client.connect(broker_address, 1883, 60)
+
+def send_data(vel_angular, trans_ratio, wheel_radius):
+    data = {
+        "velocidad_angular": vel_angular,
+        "relacion_transmision": trans_ratio,
+        "radio_rueda": wheel_radius
+    }
+    client.publish(topic_pub, json.dumps(data))
+    print(f"Data sent: {data}")
+
+# Dashboard
+layout = [
+    [sg.Text('Angular Velocity (rad/s)'), sg.InputText(key='-VEL-')],
+    [sg.Text('Transmission Ratio (engine to wheel)'), sg.InputText(key='-TRANS-')],
+    [sg.Text('Wheel Radius (m)'), sg.InputText(key='-RAD-')],
+    [sg.Button('Send')]
+]
+window = sg.Window('Tractor Control', layout)
+
+plt.ion()
+plt.show()
+
 client.loop_start()
 
-# Streamlit UI
-st.title("Motor Dashboard - RPi & ESP8266")
+while True:
+    event, values = window.read(timeout=100)
+    if event == sg.WIN_CLOSED:
+        break
+    if event == 'Send':
+        try:
+            vel_angular = float(values['-VEL-'])
+            trans_ratio = float(values['-TRANS-'])
+            wheel_radius = float(values['-RAD-'])
+            send_data(vel_angular, trans_ratio, wheel_radius)
+        except ValueError:
+            print("Invalid input. Please enter valid numbers.")
 
-# Input for velocity
-input_speed = st.number_input("Velocidad deseada", min_value=0, max_value=100, step=1)
-if st.button("Enviar al ESP8266"):
-    client.publish(TOPIC_PUB, str(input_speed))
-    st.success(f"Velocidad {input_speed} enviada")
-
-# Mostrar datos más recientes
-if "latest_data" in st.session_state:
-    st.subheader("Últimos datos recibidos del ESP8266:")
-    st.json(st.session_state["latest_data"])
-
-# Mostrar gráfico (si existe CSV)
-try:
-    df = pd.read_csv(CSV_FILE)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    st.line_chart(df.set_index('timestamp')[['rpm', 'velocidad']])
-except:
-    st.warning("No hay datos suficientes aún para graficar.")
+window.close()
+client.loop_stop()
+client.disconnect()
+plt.ioff()
+plt.show()
