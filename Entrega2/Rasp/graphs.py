@@ -3,7 +3,7 @@
  * @date 25/5/2025
  * @author Hector Tovar
  * 
- * @brief This script receives tractor telemetry data (speed, acceleration, gear)
+ * @brief This script receives tractor telemetry data (velocity, rpm, gear)
  * from MQTT and visualizes it in real-time using matplotlib.
 """
 
@@ -16,19 +16,19 @@ from collections import deque
 
 # --- MQTT Configuration ---
 MQTT_BROKER = "localhost"  # o la IP de la Raspberry Pi
-MQTT_PORT = 1883
+MQTT_PORT = 8888
 MQTT_TOPIC = "tractor/data"
 
 # --- CSV Setup ---
 csv_file = open("tractor_data.csv", "w", newline='')
 writer = csv.writer(csv_file)
-writer.writerow(["Speed (m/s)", "Acceleration (m/s^2)", "Gear"])
+writer.writerow(["Velocity (m/s)", "RPM", "Gear"])
 
 # --- Data Lists (Fixed Length with deque) ---
 MAX_POINTS = 60  # mostrar 60 segundos de datos
 timestamps = deque(maxlen=MAX_POINTS)
-speeds = deque(maxlen=MAX_POINTS)
-accelerations = deque(maxlen=MAX_POINTS)
+velocities = deque(maxlen=MAX_POINTS)
+rpms = deque(maxlen=MAX_POINTS)
 gears = deque(maxlen=MAX_POINTS)
 
 current_time = 0
@@ -42,16 +42,16 @@ def on_message(client, userdata, msg):
     global current_time
     try:
         payload = json.loads(msg.payload.decode())
-        velocidad = float(payload["speed"])
-        aceleracion = float(payload["acceleration"])
+        velocidad = float(payload["velocity"])
+        rpm = float(payload["rpm"])
         marcha = int(payload["gear"])
 
         timestamps.append(current_time)
-        speeds.append(velocidad)
-        accelerations.append(aceleracion)
+        velocities.append(velocidad)
+        rpms.append(rpm)
         gears.append(marcha)
 
-        writer.writerow([velocidad, aceleracion, marcha])
+        writer.writerow([velocidad, rpm, marcha])
         current_time += 1
     except Exception as e:
         print("Error al procesar mensaje:", e)
@@ -71,12 +71,12 @@ def animate(i):
     ax2.clear()
     ax3.clear()
 
-    ax1.plot(timestamps, speeds, label="Velocidad (m/s)", color="green")
-    ax2.plot(timestamps, accelerations, label="Aceleración (m/s²)", color="orange")
+    ax1.plot(timestamps, velocities, label="Velocidad (m/s)", color="green")
+    ax2.plot(timestamps, rpms, label="RPM", color="orange")
     ax3.step(timestamps, gears, label="Marcha", color="blue", where="post")
 
     ax1.set_ylabel("Velocidad (m/s)")
-    ax2.set_ylabel("Aceleración (m/s²)")
+    ax2.set_ylabel("RPM")
     ax3.set_ylabel("Marcha")
     ax3.set_xlabel("Tiempo (s)")
 
@@ -100,4 +100,3 @@ plt.show()
 client.loop_stop()
 client.disconnect()
 csv_file.close()
-
