@@ -7,36 +7,37 @@ import threading
 import time
 from collections import deque
 
-# MQTT Configuration
+# === MQTT Configuration ===
 broker_address = "localhost"
 topic_pub = "tractor/inputs"
 topic_sub = "tractor/outputs"
 
-# Data storage
+# === Data Storage ===
 rpm_data = deque(maxlen=50)
 vel_lineal_data = deque(maxlen=50)
-
-# CSV file
 csv_file = "datos_tractor.csv"
 
-# MQTT callbacks
+# === MQTT Callbacks ===
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
+    print("✅ Connected with result code", rc)
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
-    data = json.loads(msg.payload.decode())
-    rpm = data["rpm"]
-    vel_lineal = data["vel_lineal"]
+    try:
+        data = json.loads(msg.payload.decode())
+        rpm = data.get("rpm", 0)
+        vel_lineal = data.get("vel_lineal", 0)
 
-    rpm_data.append(rpm)
-    vel_lineal_data.append(vel_lineal)
+        rpm_data.append(rpm)
+        vel_lineal_data.append(vel_lineal)
 
-    with open(csv_file, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([rpm, vel_lineal])
+        with open(csv_file, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([rpm, vel_lineal])
+    except Exception as e:
+        print("⚠️ Error handling message:", e)
 
-# MQTT Client
+# === MQTT Client ===
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
@@ -50,45 +51,60 @@ mqtt_thread = threading.Thread(target=mqtt_loop)
 mqtt_thread.daemon = True
 mqtt_thread.start()
 
-# Streamlit UI
+# === Streamlit Interface ===
+st.set_page_config(page_title="Tractor Dashboard", layout="wide")
 st.title("🚜 Tractor Control Dashboard")
 
-st.sidebar.header("Input Parameters")
+# Sidebar for input
+st.sidebar.header("📥 Input Parameters")
 
 vel_angular = st.sidebar.number_input("Angular Velocity (rad/s)", min_value=0.0, step=0.1)
 trans_ratio = st.sidebar.number_input("Transmission Ratio", min_value=0.1, step=0.1)
 wheel_radius = st.sidebar.number_input("Wheel Radius (m)", min_value=0.0, step=0.01)
 
-if st.sidebar.button("Send"):
+if st.sidebar.button("Send to ESP8266"):
     data = {
         "velocidad_angular": vel_angular,
         "relacion_transmision": trans_ratio,
         "radio_rueda": wheel_radius
     }
     client.publish(topic_pub, json.dumps(data))
-    st.sidebar.success(f"Sent: {data}")
+    st.sidebar.success(f"✅ Sent: {data}")
 
-# Real-time graphs
-st.subheader("📊 RPM and Linear Velocity (Last 50 measurements)")
+# Realtime graph display
+st.subheader("📊 Real-Time RPM and Velocity")
 
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
-ax1.plot(list(rpm_data), label="RPM", color='tab:blue')
-ax1.set_ylabel("RPM")
-ax1.set_title("RPM")
-ax1.grid(True)
+# Dynamic container for plots
+plot_container = st.empty()
 
-ax2.plot(list(vel_lineal_data), label="Linear Velocity (m/s)", color='tab:green')
-ax2.set_ylabel("Velocity")
-ax2.set_title("Linear Velocity")
-ax2.grid(True)
+# Auto-refresh section
+run = st.checkbox("🔄 Auto-update graphs", value=True)
 
-st.pyplot(fig)
+while run:
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
 
-# Show CSV preview
+    ax1.plot(list(rpm_data), label="RPM", color='blue')
+    ax1.set_ylabel("RPM")
+    ax1.set_title("Engine RPM")
+    ax1.grid(True)
+
+    ax2.plot(list(vel_lineal_data), label="Velocidad Lineal", color='green')
+    ax2.set_ylabel("m/s")
+    ax2.set_title("Velocidad Lineal")
+    ax2.grid(True)
+
+    fig.tight_layout()
+    plot_container.pyplot(fig)
+
+    time.sleep(1)
+    run = st.checkbox("🔄 Auto-update graphs", value=True, key="refresh_key")  # Keep the checkbox responsive
+
+# CSV Data Preview
+st.markdown("---")
 if st.checkbox("📄 Show CSV Preview"):
+    import pandas as pd
     try:
-        import pandas as pd
-        df = pd.read_csv(csv_file, names=["RPM", "Linear Velocity"])
+        df = pd.read_csv(csv_file, names=["RPM", "Velocidad Lineal"])
         st.dataframe(df.tail(10))
     except FileNotFoundError:
-        st.warning("CSV file not found.")
+        st.warning("⚠️ CSV file not found.")
