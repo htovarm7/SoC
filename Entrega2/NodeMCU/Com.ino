@@ -1,112 +1,106 @@
-/**
- * @file com.ino
- * @date 17/5/2025
- * @author Hector Tovar
- * 
- * @brief This code is for the ESP8266 to send data to a Raspberry Pi using MQTT.
- * The ESP8266 reads data from the STM32 via UART and sends it to the Raspberry Pi.
- * The Raspberry Pi will then process the data and send it to the cloud.
- */
-
-#include <ESP8266WiFi.h>
+#include <EngTrModel.h>       /* Model's header file */
+#include <rtwtypes.h>
+#include <serial-readline.h>
+#include <ArduinoJson.h>
+#include <WiFi.h>
 #include <PubSubClient.h>
 
-// Constants
-const float wheel_radius = 0.5; // m
-const float transmission_ratio = 10.0;
 
-// WiFi configuration
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+const char* ssid = "Roborregos";
+const char* password = "RoBorregos2025";
 
-// MQTT
-const char* mqtt_server = "RPI_IP_ADDRESS";
+// CONFIGURA EL BROKER MQTT
+const char* mqtt_server = "192.168.0.168";  // IP o dominio de tu broker Mosquitto
+const int mqtt_port = 8888;
+
 WiFiClient espClient;
 PubSubClient client(espClient);
+void received(char*);
+SerialLineReader reader(Serial, received);
+JsonDocument doc;
+int pot = 0;
+int pot_fixed = 0;
+int button = 0;
 
-// Variables
-String inputData = "";
-float prev_angular_velocity = 0.0;
-unsigned long prev_time = 0;
+void received(char *line) {
+
+  deserializeJson(doc, line);
+  pot = doc["adc"];
+  button = doc["button"];
+}
 
 void setup_wifi() {
   delay(10);
+  // Serial.println();
+  // Serial.print("Conectando a ");
+  // Serial.println(ssid);
+
   WiFi.begin(ssid, password);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    // Serial.print(".");
   }
+
+  // Serial.println("");
+  // Serial.println("WiFi conectado");
+  // Serial.println("IP: ");
+  // Serial.println(WiFi.localIP());
 }
 
 void reconnect() {
+  // Loop hasta que esté conectado
   while (!client.connected()) {
-    client.connect("ESP8266Client");
-    delay(5000);
+    // Serial.print("Conectando al broker MQTT...");
+    if (client.connect("stm32client")) {
+      // Serial.println("Conectado!");
+    } else {
+      // Serial.print("Fallo, rc=");
+      Serial.print(client.state());
+      // Serial.println(" intentando de nuevo en 5 segundos");
+      delay(5000);
+    }
   }
 }
-
-// Calculates RPM from angular velocity
-float calculate_rpm(float angular_velocity) {
-  return (angular_velocity * 60.0) / (2.0 * PI * wheel_radius * transmission_ratio);
-}
-
-// Calculates angular acceleration
-float calculate_acceleration(float angular_velocity, float prev_angular_velocity, unsigned long dt_ms) {
-  if (dt_ms == 0) return 0.0;
-  float dt_s = dt_ms / 1000.0;
-  return (angular_velocity - prev_angular_velocity) / dt_s;
-}
-
-// Determines the gear based on the brake value
-int determine_gear(int brake) {
-  // Example: adjust logic as needed
-  if (brake == 0) return 1;
-  else if (brake == 1) return 2;
-  else if (brake == 2) return 3;
-  else return 0; // Neutral or error
-}
-
-void setup() {
-  Serial.begin(9600); // UART with STM32
+void setup()
+{
+  delay(3000);
+  Serial.begin(9600);
   setup_wifi();
-  client.setServer(mqtt_server, 1883);
-  prev_time = millis();
+  client.setServer(mqtt_server, mqtt_port);
+  EngTrModel_initialize();
 }
 
-void loop() {
+void loop()
+{ 
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
-
-  if (Serial.available()) {
-    inputData = Serial.readStringUntil('\n');
-    inputData.trim();
-
-    // Expects data in format: "angular_velocity,brake"
-    int commaIndex = inputData.indexOf(',');
-    if (commaIndex > 0) {
-      float angular_velocity = inputData.substring(0, commaIndex).toFloat();
-      int brake = inputData.substring(commaIndex + 1).toInt();
-
-      unsigned long current_time = millis();
-      unsigned long dt = current_time - prev_time;
-
-      float acceleration = calculate_acceleration(angular_velocity, prev_angular_velocity, dt);
-      float rpm = calculate_rpm(angular_velocity);
-      int gear = determine_gear(brake);
-
-      // Prepare MQTT message
-      String mqttMsg = String("{\"angular_velocity\":") + angular_velocity +
-                       ",\"brake\":" + brake +
-                       ",\"gear\":" + gear +
-                       ",\"acceleration\":" + acceleration +
-                       ",\"rpm\":" + rpm + "}";
-
-      client.publish("tractor/data", mqttMsg.c_str());
-
-      // Update previous values
-      prev_angular_velocity = angular_velocity;
-      prev_time = current_time;
-    }
+  reader.poll();
+  pot_fixed = map(pot, 0, 4095, 0,200);
+  EngTrModel_U.Throttle = pot_fixed;
+  if(pot_fixed <= 0){
+    EngTrModel_U.Throttle = 0.0;
   }
+  if(button){
+    EngTrModel_U.BrakeTorque = 10000.0;
+  }
+  else{
+    EngTrModel_U.BrakeTorque = 0.0;
+  }
+  EngTrModel_step( );
+  String mqttMsg = String("{\"velocity\":") + EngTrModel_Y.VehicleSpeed +
+                       ",\"rpm\":" + EngTrModel_Y.EngineSpeed +
+                       ",\"gear\":" + EngTrModel_Y.Gear +"}";
+
+  client.publish("tractor/data", mqttMsg.c_str());
+  Serial.print(EngTrModel_Y.VehicleSpeed);
+  Serial.print("V");
+  Serial.print(EngTrModel_Y.EngineSpeed);
+  Serial.print("S");
+  Serial.print(EngTrModel_Y.Gear);
+  Serial.print("E");
+  delay(200);
+  
 }
