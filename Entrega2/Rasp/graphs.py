@@ -3,76 +3,71 @@
  * @date 17/5/2025
  * @author Hector Tovar
  * 
- * @brief this script visualizes real-time data from a tractor telemetry system using MQTT and PySimpleGUI.
- * This code should be run in a Python environment with the required libraries installed.
- * Also this script should be running in the Raspberry Pi.
+ * @brief This script visualizes real-time data from a tractor telemetry system using MQTT and matplotlib.
+ * It should be run on a Raspberry Pi with the required libraries installed.
 """
 
 import csv
-import PySimpleGUI as sg
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.animation as animation
 import paho.mqtt.client as mqtt
 
-# Initialization
-data = []
+# --- Data lists ---
+timestamps = []
+rpms = []
+velocidades = []
+
+# --- CSV Setup ---
 csv_file = open("tractor_data.csv", "w", newline='')
 writer = csv.writer(csv_file)
-writer.writerow(["Engine Speed", "Vehicle Speed", "Gear"])
+writer.writerow(["Engine Speed (RPM)", "Vehicle Speed (rad/s)", "Gear"])
 
-# Configure window
-sg.theme("DarkBlue")
-layout = [[sg.Text("Real-Time Data Visualization")],
-          [sg.Canvas(key="-CANVAS-")],
-          [sg.Button("Exit")]]
-window = sg.Window("Tractor Telemetry", layout, finalize=True)
-
-# Plot
-fig, ax = plt.subplots()
-line1, = ax.plot([], [], label="Engine Speed")
-line2, = ax.plot([], [], label="Vehicle Speed")
-ax.legend()
-canvas = FigureCanvasTkAgg(fig, window["-CANVAS-"].TKCanvas)
-canvas.draw()
-canvas.get_tk_widget().pack()
-
-# Data for plotting
-engine_speed, vehicle_speed = [], []
-
-def update_graph():
-    line1.set_data(range(len(engine_speed)), engine_speed)
-    line2.set_data(range(len(vehicle_speed)), vehicle_speed)
-    ax.relim()
-    ax.autoscale_view()
-    canvas.draw()
-
-# MQTT Callback
+# --- MQTT Callback ---
 def on_message(client, userdata, msg):
     payload = msg.payload.decode()
     try:
         e_speed, v_speed, gear = map(float, payload.split(","))
-        data.append((e_speed, v_speed, gear))
-        engine_speed.append(e_speed)
-        vehicle_speed.append(v_speed)
+        timestamps.append(len(timestamps))
+        rpms.append(e_speed)
+        velocidades.append(v_speed)
         writer.writerow([e_speed, v_speed, int(gear)])
-        update_graph()
     except ValueError:
-        pass  # Ignore format errors
+        pass  # Ignore invalid data
 
-# MQTT
+# --- MQTT Setup ---
 client = mqtt.Client()
 client.on_message = on_message
 client.connect("localhost", 1883)
 client.subscribe("tractor/data")
 client.loop_start()
 
-# GUI Loop
-while True:
-    event, _ = window.read(timeout=100)
-    if event == sg.WIN_CLOSED or event == "Exit":
-        break
+# --- Plot setup ---
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
 
+def animate(i):
+    ax1.clear()
+    ax2.clear()
+
+    ax1.plot(timestamps, velocidades, label="Velocidad Angular (rad/s)", color="green")
+    ax2.plot(timestamps, rpms, label="RPM", color="blue")
+
+    ax1.set_ylabel("Velocidad Angular (rad/s)")
+    ax2.set_ylabel("RPM")
+    ax2.set_xlabel("Tiempo (s)")
+    ax1.set_title("Datos en Tiempo Real")
+    ax1.legend()
+    ax2.legend()
+    ax1.grid(True)
+    ax2.grid(True)
+    plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
+    plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
+
+# --- Launch animation ---
+ani = animation.FuncAnimation(fig, animate, interval=1000)
+plt.tight_layout()
+plt.show()
+
+# --- Cleanup ---
 client.loop_stop()
 client.disconnect()
 csv_file.close()
-window.close()
