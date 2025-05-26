@@ -1,24 +1,30 @@
+import streamlit as st
 import paho.mqtt.client as mqtt
-import json
-import PySimpleGUI as sg
 import matplotlib.pyplot as plt
+import json
 import csv
+import threading
+import time
+from collections import deque
 
-# MQTT configuration
+# MQTT Configuration
 broker_address = "localhost"
 topic_pub = "tractor/inputs"
 topic_sub = "tractor/outputs"
 
-rpm_data = []
-vel_lineal_data = []
+# Data storage
+rpm_data = deque(maxlen=50)
+vel_lineal_data = deque(maxlen=50)
 
-# Callback functions
+# CSV file
+csv_file = "datos_tractor.csv"
+
+# MQTT callbacks
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
-    print(f"Message received: {msg.payload.decode()}")
     data = json.loads(msg.payload.decode())
     rpm = data["rpm"]
     vel_lineal = data["vel_lineal"]
@@ -26,69 +32,63 @@ def on_message(client, userdata, msg):
     rpm_data.append(rpm)
     vel_lineal_data.append(vel_lineal)
 
-    with open('datos_tractor.csv', mode='a', newline='') as file:
+    with open(csv_file, mode='a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow([rpm, vel_lineal])
 
-    plt.clf()
-    plt.subplot(2, 1, 1)
-    plt.plot(rpm_data, label='RPM')
-    plt.xlabel('Measurements')
-    plt.ylabel('Revolutions per minute')
-    plt.legend()
-
-    plt.subplot(2, 1, 2)
-    plt.plot(vel_lineal_data, label='Linear Velocity (m/s)')
-    plt.xlabel('Measurements')
-    plt.ylabel('Linear Velocity')
-    plt.legend()
-
-    plt.pause(0.1)
-
-# MQTT client setup
+# MQTT Client
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
 
-def send_data(vel_angular, trans_ratio, wheel_radius):
+# Run MQTT loop in background
+def mqtt_loop():
+    client.loop_forever()
+
+mqtt_thread = threading.Thread(target=mqtt_loop)
+mqtt_thread.daemon = True
+mqtt_thread.start()
+
+# Streamlit UI
+st.title("🚜 Tractor Control Dashboard")
+
+st.sidebar.header("Input Parameters")
+
+vel_angular = st.sidebar.number_input("Angular Velocity (rad/s)", min_value=0.0, step=0.1)
+trans_ratio = st.sidebar.number_input("Transmission Ratio", min_value=0.1, step=0.1)
+wheel_radius = st.sidebar.number_input("Wheel Radius (m)", min_value=0.0, step=0.01)
+
+if st.sidebar.button("Send"):
     data = {
         "velocidad_angular": vel_angular,
         "relacion_transmision": trans_ratio,
         "radio_rueda": wheel_radius
     }
     client.publish(topic_pub, json.dumps(data))
-    print(f"Data sent: {data}")
+    st.sidebar.success(f"Sent: {data}")
 
-# Dashboard
-layout = [
-    [sg.Text('Angular Velocity (rad/s)'), sg.InputText(key='-VEL-')],
-    [sg.Text('Transmission Ratio (engine to wheel)'), sg.InputText(key='-TRANS-')],
-    [sg.Text('Wheel Radius (m)'), sg.InputText(key='-RAD-')],
-    [sg.Button('Send')]
-]
-window = sg.Window('Tractor Control', layout)
+# Real-time graphs
+st.subheader("📊 RPM and Linear Velocity (Last 50 measurements)")
 
-plt.ion()
-plt.show()
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+ax1.plot(list(rpm_data), label="RPM", color='tab:blue')
+ax1.set_ylabel("RPM")
+ax1.set_title("RPM")
+ax1.grid(True)
 
-client.loop_start()
+ax2.plot(list(vel_lineal_data), label="Linear Velocity (m/s)", color='tab:green')
+ax2.set_ylabel("Velocity")
+ax2.set_title("Linear Velocity")
+ax2.grid(True)
 
-while True:
-    event, values = window.read(timeout=100)
-    if event == sg.WIN_CLOSED:
-        break
-    if event == 'Send':
-        try:
-            vel_angular = float(values['-VEL-'])
-            trans_ratio = float(values['-TRANS-'])
-            wheel_radius = float(values['-RAD-'])
-            send_data(vel_angular, trans_ratio, wheel_radius)
-        except ValueError:
-            print("Invalid input. Please enter valid numbers.")
+st.pyplot(fig)
 
-window.close()
-client.loop_stop()
-client.disconnect()
-plt.ioff()
-plt.show()
+# Show CSV preview
+if st.checkbox("📄 Show CSV Preview"):
+    try:
+        import pandas as pd
+        df = pd.read_csv(csv_file, names=["RPM", "Linear Velocity"])
+        st.dataframe(df.tail(10))
+    except FileNotFoundError:
+        st.warning("CSV file not found.")
