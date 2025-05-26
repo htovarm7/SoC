@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import paho.mqtt.client as mqtt
 import matplotlib.pyplot as plt
 import json
@@ -80,24 +81,28 @@ plot_container = st.empty()
 # Auto-refresh section
 run = st.checkbox("🔄 Auto-update graphs", value=True)
 
-while run:
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+# Auto-refresh checkbox
+auto_refresh = st.checkbox("🔄 Auto-update graphs")
 
-    ax1.plot(list(rpm_data), label="RPM", color='blue')
-    ax1.set_ylabel("RPM")
-    ax1.set_title("Engine RPM")
-    ax1.grid(True)
+# Set up auto-refresh every 1 sec (1000 ms)
+if auto_refresh:
+    st_autorefresh(interval=1000, limit=None, key="autorefresh")
 
-    ax2.plot(list(vel_lineal_data), label="Velocidad Lineal", color='green')
-    ax2.set_ylabel("m/s")
-    ax2.set_title("Velocidad Lineal")
-    ax2.grid(True)
+# Gráficas
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
 
-    fig.tight_layout()
-    plot_container.pyplot(fig)
+ax1.plot(list(rpm_data), label="RPM", color='blue')
+ax1.set_ylabel("RPM")
+ax1.set_title("Engine RPM")
+ax1.grid(True)
 
-    time.sleep(1)
-    run = st.checkbox("🔄 Auto-update graphs", value=True, key="refresh_key")  # Keep the checkbox responsive
+ax2.plot(list(vel_lineal_data), label="Velocidad Lineal", color='green')
+ax2.set_ylabel("m/s")
+ax2.set_title("Velocidad Lineal")
+ax2.grid(True)
+
+fig.tight_layout()
+st.pyplot(fig)
 
 # CSV Data Preview
 st.markdown("---")
