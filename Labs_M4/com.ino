@@ -7,7 +7,7 @@ const char* ssid = "Equipo6";
 const char* password = "Guajardo";
 
 // Configuración MQTT
-const char* mqtt_server = "IP_RASPBERRY_PI";
+const char* mqtt_server = "192.168.137.214";
 const char* topic_sub = "tractor/inputs";
 const char* topic_pub = "tractor/outputs";
 
