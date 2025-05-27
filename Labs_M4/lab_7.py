@@ -4,10 +4,11 @@ import paho.mqtt.client as mqtt
 import json
 import matplotlib.pyplot as plt
 import csv
+import os
 import threading
 
 # MQTT Configuration
-broker_address = "localhost"
+broker_address = "192.168.137.214"
 topic_pub = "tractor/inputs"
 topic_sub = "tractor/outputs"
 
@@ -31,7 +32,8 @@ def on_message(client, userdata, msg):
         rpm_data.append(rpm)
         vel_lineal_data.append(vel_lineal)
 
-        with open("datos_tractor.csv", "a", newline="") as file:
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos_tractor.csv")
+        with open(csv_path, "a", newline="") as file:
             writer = csv.writer(file)
             writer.writerow([rpm, vel_lineal])
         
