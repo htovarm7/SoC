@@ -32,16 +32,14 @@ def on_message(client, userdata, msg):
         rpm_data.append(rpm)
         vel_lineal_data.append(vel_lineal)
 
-    csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos_tractor.csv")
-    write_header = not os.path.exists(csv_path)
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos_tractor.csv")
+        write_header = not os.path.exists(csv_path)
 
-    with open(csv_path, "a", newline="") as file:
-        writer = csv.writer(file)
-        if write_header:
-            writer.writerow(["RPM", "Velocidad Lineal (m/s)"])
-        writer.writerow([rpm, vel_lineal])
-
-        
+        with open(csv_path, "a", newline="") as file:
+            writer = csv.writer(file)
+            if write_header:
+                writer.writerow(["RPM", "Velocidad Lineal (m/s)"])
+            writer.writerow([rpm, vel_lineal])
         plot_data()
     except Exception as e:
         print("Error procesando mensaje:", e)
