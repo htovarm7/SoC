@@ -1,20 +1,20 @@
-#include <ESP8266WiFi.h>  // Usar #include <WiFi.h> para ESP32
+#include <ESP8266WiFi.h> 
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-// Configuración WiFi
+// WiFi configuration
 const char* ssid = "Equipo6";
 const char* password = "Guajardo";
 
-// Configuración MQTT
+// MQTT configuration
 const char* mqtt_server = "192.168.137.214";
 const char* topic_sub = "tractor/inputs";
 const char* topic_pub = "tractor/outputs";
 
-// Variables del modelo
-float velocidad_angular = 10.0;  // rad/s
-float relacion_transmision = 0.1;
-float radio_rueda = 0.3;  // metros
+// Model variables
+float angular_velocity = 10.0;  // rad/s
+float transmission_ratio = 0.1;
+float wheel_radius = 0.3;  // meters
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -22,7 +22,7 @@ PubSubClient client(espClient);
 void setup_wifi() {
   delay(10);
   Serial.println();
-  Serial.print("Conectando a ");
+  Serial.print("Connecting to ");
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
