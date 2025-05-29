@@ -33,34 +33,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := entrega2
+BUILD_ARTIFACT_NAME := Entrega2
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-entrega2.elf \
+Entrega2.elf \
 
 MAP_FILES += \
-entrega2.map \
+Entrega2.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-entrega2.list \
+Entrega2.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: entrega2.elf secondary-outputs
+main-build: Entrega2.elf secondary-outputs
 
 # Tool invocations
-entrega2.elf entrega2.map: $(OBJS) $(USER_OBJS) C:\Users\jldm-\OneDrive\ -\ Instituto\ Tecnologico\ y\ de\ Estudios\ Superiores\ de\ Monterrey\TEC\ CARRERA\Soc\SoC\Entrega2\STM32\STM32C031C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "entrega2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\jldm-\OneDrive - Instituto Tecnologico y de Estudios Superiores de Monterrey\TEC CARRERA\Soc\SoC\Entrega2\STM32\STM32C031C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="entrega2.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Entrega2.elf Entrega2.map: $(OBJS) $(USER_OBJS) C:\Users\jldm-\Downloads\Entrega2\Entrega2\STM32C031C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Entrega2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\jldm-\Downloads\Entrega2\Entrega2\STM32C031C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Entrega2.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -69,14 +69,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-entrega2.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "entrega2.list"
+Entrega2.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Entrega2.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout entrega2.elf entrega2.list entrega2.map
+	-$(RM) Entrega2.elf Entrega2.list Entrega2.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

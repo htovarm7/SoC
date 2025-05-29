@@ -6,34 +6,37 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Src/adclib.c \
+../Src/exti_func.c \
 ../Src/lcd.c \
 ../Src/main.c \
-../Src/pwm.c \
 ../Src/syscalls.c \
 ../Src/sysmem.c \
 ../Src/systicklib.c \
+../Src/user_keypad.c \
 ../Src/user_tim.c \
 ../Src/user_uart.c 
 
 OBJS += \
 ./Src/adclib.o \
+./Src/exti_func.o \
 ./Src/lcd.o \
 ./Src/main.o \
-./Src/pwm.o \
 ./Src/syscalls.o \
 ./Src/sysmem.o \
 ./Src/systicklib.o \
+./Src/user_keypad.o \
 ./Src/user_tim.o \
 ./Src/user_uart.o 
 
 C_DEPS += \
 ./Src/adclib.d \
+./Src/exti_func.d \
 ./Src/lcd.d \
 ./Src/main.d \
-./Src/pwm.d \
 ./Src/syscalls.d \
 ./Src/sysmem.d \
 ./Src/systicklib.d \
+./Src/user_keypad.d \
 ./Src/user_tim.d \
 ./Src/user_uart.d 
 
@@ -45,7 +48,7 @@ Src/%.o Src/%.su Src/%.cyclo: ../Src/%.c Src/subdir.mk
 clean: clean-Src
 
 clean-Src:
-	-$(RM) ./Src/adclib.cyclo ./Src/adclib.d ./Src/adclib.o ./Src/adclib.su ./Src/lcd.cyclo ./Src/lcd.d ./Src/lcd.o ./Src/lcd.su ./Src/main.cyclo ./Src/main.d ./Src/main.o ./Src/main.su ./Src/pwm.cyclo ./Src/pwm.d ./Src/pwm.o ./Src/pwm.su ./Src/syscalls.cyclo ./Src/syscalls.d ./Src/syscalls.o ./Src/syscalls.su ./Src/sysmem.cyclo ./Src/sysmem.d ./Src/sysmem.o ./Src/sysmem.su ./Src/systicklib.cyclo ./Src/systicklib.d ./Src/systicklib.o ./Src/systicklib.su ./Src/user_tim.cyclo ./Src/user_tim.d ./Src/user_tim.o ./Src/user_tim.su ./Src/user_uart.cyclo ./Src/user_uart.d ./Src/user_uart.o ./Src/user_uart.su
+	-$(RM) ./Src/adclib.cyclo ./Src/adclib.d ./Src/adclib.o ./Src/adclib.su ./Src/exti_func.cyclo ./Src/exti_func.d ./Src/exti_func.o ./Src/exti_func.su ./Src/lcd.cyclo ./Src/lcd.d ./Src/lcd.o ./Src/lcd.su ./Src/main.cyclo ./Src/main.d ./Src/main.o ./Src/main.su ./Src/syscalls.cyclo ./Src/syscalls.d ./Src/syscalls.o ./Src/syscalls.su ./Src/sysmem.cyclo ./Src/sysmem.d ./Src/sysmem.o ./Src/sysmem.su ./Src/systicklib.cyclo ./Src/systicklib.d ./Src/systicklib.o ./Src/systicklib.su ./Src/user_keypad.cyclo ./Src/user_keypad.d ./Src/user_keypad.o ./Src/user_keypad.su ./Src/user_tim.cyclo ./Src/user_tim.d ./Src/user_tim.o ./Src/user_tim.su ./Src/user_uart.cyclo ./Src/user_uart.d ./Src/user_uart.o ./Src/user_uart.su
 
 .PHONY: clean-Src
 

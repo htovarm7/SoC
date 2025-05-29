@@ -1,49 +1,97 @@
-#include "EngTrModel.h"       /* Model's header file */
+#include "EngTrModel.h"      // Model header
 #include "rtwtypes.h"
 #include <serial-readline.h>
 #include <ArduinoJson.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
 
-void received(char*);
-SerialLineReader reader(Serial, received);
-JsonDocument doc;
-int pot = 0;
-int pot_fixed = 0;
-int button = 0;
 
-void received(char *line) {
-	Serial.println(line);
-  deserializeJson(doc, line);
-  pot = doc["adc"];
-  button = doc["button"];
+const char* WIFI_SSID = WIFI_SSID;
+const char* WIFI_PASS = WIFI_PASS;
+const char* MQTT_SERVER = MQTT_SERVER;
+const int MQTT_PORT = MQTT_PORT;
+
+
+const char* MQTT_CLIENT_ID = MQTT_CLIENT_ID;
+const char* MQTT_TOPIC = MQTT_TOPIC;
+
+// Global objects
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+// Serial line reader and JSON document
+void onSerialLineReceived(char*);
+SerialLineReader serialReader(Serial, onSerialLineReceived);
+JsonDocument jsonDoc;
+
+// Input variables
+int adcValue = 0;
+int throttleInput = 0;
+int buttonState = 0;
+
+// Callback for serial line reception
+void onSerialLineReceived(char *line) {
+  deserializeJson(jsonDoc, line);
+  adcValue = jsonDoc["adc"];
+  buttonState = jsonDoc["button"];
 }
 
-void setup()
-{
+// Connects to WiFi network
+void connectToWiFi() {
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+}
+
+// Ensures MQTT connection
+void ensureMQTTConnection() {
+  while (!mqttClient.connected()) {
+    mqttClient.connect(MQTT_CLIENT_ID);
+    if (!mqttClient.connected()) {
+      delay(5000);
+    }
+  }
+}
+
+// Arduino setup function
+void setup() {
+  delay(3000);
   Serial.begin(9600);
+  connectToWiFi();
+  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   EngTrModel_initialize();
 }
 
-void loop()
-{ 
-  reader.poll();
-  pot_fixed = map(pot, 0, 4095, 0,200);
-  EngTrModel_U.Throttle = pot_fixed;
-  if(pot_fixed <= 0){
-    EngTrModel_U.Throttle = 0.0;
+// Arduino main loop
+void loop() { 
+  if (!mqttClient.connected()) {
+    ensureMQTTConnection();
   }
-  if(button){
-    EngTrModel_U.BrakeTorque = 10000.0;
-  }
-  else{
-    EngTrModel_U.BrakeTorque = 0.0;
-  }
-  EngTrModel_step( );
+  mqttClient.loop();
+  serialReader.poll();
+
+  // Map ADC value to throttle input (0-200)
+  throttleInput = map(adcValue, 0, 4095, 0, 200);
+  EngTrModel_U.Throttle = throttleInput > 0 ? throttleInput : 0.0;
+  EngTrModel_U.BrakeTorque = buttonState ? 10000.0 : 0.0;
+
+  // Run model step
+  EngTrModel_step();
+
+  // Prepare and publish MQTT message
+  String mqttMessage = String("{\"velocity\":") + EngTrModel_Y.VehicleSpeed +
+                       ",\"rpm\":" + EngTrModel_Y.EngineSpeed +
+                       ",\"gear\":" + EngTrModel_Y.Gear + "}";
+  mqttClient.publish(MQTT_TOPIC, mqttMessage.c_str());
+
+  // Print model outputs to serial
   Serial.print(EngTrModel_Y.VehicleSpeed);
   Serial.print("V");
-  Serial.println(" ");
-  // Serial.print(EngTrModel_Y.EngineSpeed);
-  // Serial.print("S");
-  // Serial.print(EngTrModel_Y.Gear);
-  // Serial.print("G");
-  //delay(100);
+  Serial.print(EngTrModel_Y.EngineSpeed);
+  Serial.print("S");
+  Serial.print(EngTrModel_Y.Gear);
+  Serial.print("E");
+
+  delay(200);
 }

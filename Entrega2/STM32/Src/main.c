@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include "main.h"
-#include "custom_timer.h"
-#include "custom_uart.h"
-#include "lcd_driver.h"
-#include "systick_delay.h"
-#include "adc_reader.h"
+#include "user_tim.h"
+#include "user_uart.h"
+#include "lcd.h"
+#include "systicklib.h"
+#include "adclib.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -104,16 +104,19 @@ int main(void)
 void LED_Init(void)
 {
 	RCC->IOPENR |= (1U << 0);	// Enable clock for GPIOA
+	RCC->IOPENR |= (1U << 1);	// Enable clock for GPIOB
 
-	GPIOA->BSRR = (1U << 21);	// Reset PA5
-	GPIOA->PUPDR &= ~(3U << 10);
-	GPIOA->OTYPER &= ~(1U << 5);
-	GPIOA->MODER &= ~(3U << 10);
-	GPIOA->MODER |= (1U << 10);	// Set PA5 as output
+	// Configure PB4 as output (LED)
+	GPIOB->BSRR = (1U << 20);	// Reset PB4
+	GPIOB->PUPDR &= ~(3U << 8);
+	GPIOB->OTYPER &= ~(1U << 4);
+	GPIOB->MODER &= ~(3U << 8);
+	GPIOB->MODER |= (1U << 8);	// Set PB4 as output
 
-	GPIOA->MODER &= ~(3U << 14);	// PA7 as input
-	GPIOA->PUPDR &= ~(3U << 14);
-	GPIOA->PUPDR |= (2U << 14);		// Pull-down
+	// Configure PA8 as input (Button)
+	GPIOA->MODER &= ~(3U << 16);	// PA8 as input
+	GPIOA->PUPDR &= ~(3U << 16);
+	GPIOA->PUPDR |= (2U << 16);		// Pull-down
 }
 
 void SystemClock_Config(void)

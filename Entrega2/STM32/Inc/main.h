@@ -1,7 +1,7 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
-/* Embedded FLASH memory registers */
+
 typedef struct
 {
 	volatile uint32_t ACR;
@@ -22,7 +22,7 @@ typedef struct
 	volatile uint32_t SECR;
 } FLASH_TypeDef;
 
-/* Reset and Clock Control registers */
+
 typedef struct
 {
 	volatile uint32_t CR;
@@ -38,12 +38,11 @@ typedef struct
 	volatile uint32_t APBRSTR2;
 	volatile uint32_t IOPENR;
 	volatile uint32_t AHBENR;
-	volatile uint32_t APBENR1;
-	volatile uint32_t APBENR2;
-	volatile uint32_t AFR[2];
+  volatile uint32_t APBENR1;
+  volatile uint32_t APBENR2;
 } RCC_TypeDef;
 
-/* General Purpose I/O registers */
+
 typedef struct
 {
 	volatile uint32_t MODER;
@@ -59,10 +58,10 @@ typedef struct
   volatile uint32_t BRR;
 } GPIO_TypeDef;
 
-#define RCC_BASE	  0x40021000UL//		RCC base address
-#define FLASH_BASE	0x40022000UL//		FLASH base address
-#define GPIOA_BASE	0x50000000UL//		GPIO Port A base address
-#define GPIOB_BASE  0x50000400UL //   GPIO Port B base address
+#define RCC_BASE	  0x40021000UL
+#define FLASH_BASE	0x40022000UL
+#define GPIOA_BASE	0x50000000UL
+#define GPIOB_BASE  0x50000400UL 
 
 #define RCC     (( RCC_TypeDef *)RCC_BASE )
 #define FLASH	(( FLASH_TypeDef	*)FLASH_BASE )

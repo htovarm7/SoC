@@ -2,8 +2,6 @@
 #define USER_UART_H_
 #include <stdio.h>
 
-
-/* USART registers */
 typedef struct
 {
   volatile uint32_t CR1;
@@ -21,16 +19,13 @@ typedef struct
 
 } USART_TypeDef;
 
-#define USART1_BASE	0x40013800UL  //USART 1 base address
+#define USART1_BASE	0x40013800UL
 
 
 #define USART1	(( USART_TypeDef *)USART1_BASE )
 
 void USER_USART1_Init( void );
-void USER_USART1_Transmit( uint8_t *pData, uint16_t size );
-void USER_USART1_Send_8bit(uint8_t Data);
-int _write(int file, char *ptr, int len); 
-uint8_t USER_UART1_Receive_8bit( void );
+int _write(int file, char *ptr, int len);
 
 
 #endif /* UART_H_ */

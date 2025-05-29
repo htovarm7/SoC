@@ -1,7 +1,7 @@
 #ifndef ADCLIB_H_
 #define ADCLIB_H_
 
-/* Analog-to-Digital Converter registers */
+
 typedef struct
 {
 	volatile uint32_t ISR;
@@ -26,7 +26,7 @@ typedef struct
 	volatile uint32_t CCR;
 } ADC_TypeDef;
 
-#define ADC_BASE	0x40012400UL  //	ADC base address
+#define ADC_BASE	0x40012400UL
 #define ADC    	(( ADC_TypeDef * )ADC_BASE )
 
 static uint8_t USER_ADC_Calibration( void );
