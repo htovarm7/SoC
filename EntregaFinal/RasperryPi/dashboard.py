@@ -8,7 +8,7 @@ import os
 import threading
 
 # MQTT Configuration
-broker_address ="192.168.137.214"
+broker_address ="192.168.137.59"
 topic_pub = "tractor/inputs"
 topic_sub = "tractor/outputs"
 
