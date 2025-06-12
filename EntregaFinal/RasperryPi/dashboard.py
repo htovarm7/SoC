@@ -1,28 +1,29 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import BooleanVar
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
-import paho.mqtt.client as mqtt
+import threading
 import json
 from datetime import datetime
-import threading
 
-# === Variables globales para datos ===
+import paho.mqtt.client as mqtt
+
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+# === MQTT Setup ===
+broker_address = "localhost"
+topic_sub = "tractor/data"
+topic_pub = "tractor/control"
+
 rpm_data = []
 vel_lineal_data = []
 gear_data = []
 timestamps = []
 
-modo_manual = BooleanVar(value=False)
-acelerador_on = BooleanVar(value=False)
-freno_on = BooleanVar(value=False)
+# Estado de modo manual/automático
+modo_manual = tk.BooleanVar(value=False)
+throttle_on = tk.BooleanVar(value=False)
+brake_on    = tk.BooleanVar(value=False)
 
-broker_address = "localhost"
-topic_sub = "tractor/data"
-topic_pub = "tractor/control"
-
-# === MQTT Callbacks ===
 def on_connect(client, userdata, flags, rc):
     print("Conectado al broker MQTT con código:", rc)
     client.subscribe(topic_sub)
@@ -30,26 +31,19 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
-        rpm = data.get("rpm")
-        vl = data.get("spd")
+        rpm  = data.get("rpm")
+        vl   = data.get("spd")
         gear = data.get("gear")
-        now = datetime.now().strftime("%H:%M:%S")
-
+        now  = datetime.now().strftime("%H:%M:%S")
         if rpm is not None and vl is not None and gear is not None:
             rpm_data.append(rpm)
             vel_lineal_data.append(vl)
             gear_data.append(gear)
             timestamps.append(now)
-            # Limitar tamaño de listas para que no crezcan ilimitadamente
-            max_len = 50
-            if len(rpm_data) > max_len:
-                rpm_data.pop(0)
-                vel_lineal_data.pop(0)
-                gear_data.pop(0)
-                timestamps.pop(0)
     except Exception as e:
-        print("Error al procesar mensaje MQTT:", e)
+        print("Error al procesar el mensaje:", e)
 
+# Inicializamos cliente MQTT
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
@@ -58,84 +52,87 @@ client.connect(broker_address, 1883, 60)
 def mqtt_loop():
     client.loop_forever()
 
-mqtt_thread = threading.Thread(target=mqtt_loop, daemon=True)
-mqtt_thread.start()
+threading.Thread(target=mqtt_loop, daemon=True).start()
 
-# === Funciones para publicar control ===
-def publicar_control():
+# === Interfaz Tkinter ===
+root = tk.Tk()
+root.title("Dashboard del Tractor")
+
+# ---- Frame de controles ----
+ctrl_frame = ttk.Frame(root, padding=10)
+ctrl_frame.pack(side=tk.TOP, fill=tk.X)
+
+# Switch Automático / Manual
+modo_chk = ttk.Checkbutton(
+    ctrl_frame, text="Modo Manual",
+    variable=modo_manual,
+    command=lambda: manual_frame.pack_forget() if not modo_manual.get() else manual_frame.pack(fill=tk.X, pady=5)
+)
+modo_chk.pack(side=tk.LEFT, padx=5)
+
+# Frame de controles manuales (oculto inicialmente)
+manual_frame = ttk.Frame(root, padding=10, relief=tk.RIDGE)
+# Acelerador
+accel_chk = ttk.Checkbutton(
+    manual_frame, text="Acelerador",
+    variable=throttle_on,
+    command=lambda: publish_control()
+)
+accel_chk.pack(side=tk.LEFT, padx=10)
+# Freno
+brake_chk = ttk.Checkbutton(
+    manual_frame, text="Freno",
+    variable=brake_on,
+    command=lambda: publish_control()
+)
+brake_chk.pack(side=tk.LEFT, padx=10)
+
+# ---- Frame de gráficos ----
+plots_frame = ttk.Frame(root)
+plots_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+# Helper para crear un canvas con matplotlib
+def create_plot(parent, title, ylabel):
+    fig = Figure(figsize=(4,2), dpi=100)
+    ax = fig.add_subplot(111)
+    ax.set_title(title)
+    ax.set_xlabel("Tiempo")
+    ax.set_ylabel(ylabel)
+    line, = ax.plot([], [], marker='o')
+    canvas = FigureCanvasTkAgg(fig, master=parent)
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    return fig, ax, line, canvas
+
+rpm_fig,  rpm_ax,  rpm_line,  rpm_canvas  = create_plot(plots_frame, "RPM del Motor", "RPM")
+vel_fig,  vel_ax,  vel_line,  vel_canvas  = create_plot(plots_frame, "Velocidad Lineal", "km/h")
+gear_fig, gear_ax, gear_line, gear_canvas = create_plot(plots_frame, "Marcha", "Gear")
+
+# Publicar control en MQTT
+def publish_control():
     if modo_manual.get():
-        throttle = 100 if acelerador_on.get() else 0
-        brake = 100 if freno_on.get() else 0
+        throttle = 100 if throttle_on.get() else 0
+        brake    = 100 if brake_on.get()    else 0
         payload = json.dumps({"throttle": throttle, "brake": brake})
         client.publish(topic_pub, payload)
 
-# === GUI con Tkinter ===
-class TractorDashboard(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Dashboard del Tractor")
+# Función para actualizar gráficos periódicamente
+def update_graphs():
+    # Actualizar datos de RPM
+    rpm_line.set_data(timestamps, rpm_data)
+    rpm_ax.relim(); rpm_ax.autoscale_view()
+    rpm_canvas.draw()
+    # Velocidad
+    vel_line.set_data(timestamps, vel_lineal_data)
+    vel_ax.relim(); vel_ax.autoscale_view()
+    vel_canvas.draw()
+    # Marcha
+    gear_line.set_data(timestamps, gear_data)
+    gear_ax.relim(); gear_ax.autoscale_view()
+    gear_canvas.draw()
+    # Reprogramar
+    root.after(1000, update_graphs)
 
-        # Toggle modo manual/automático
-        self.modo_switch = ttk.Checkbutton(self, text="Modo Manual", variable=modo_manual, command=self.toggle_manual)
-        self.modo_switch.pack(pady=5)
+# Iniciar bucle de actualización
+root.after(1000, update_graphs)
 
-        # Frame controles manuales (acelerador, freno)
-        self.manual_frame = ttk.Frame(self)
-        self.manual_frame.pack(pady=5, fill="x")
-
-        self.acelerador_switch = ttk.Checkbutton(self.manual_frame, text="Acelerador Encendido", variable=acelerador_on, command=publicar_control)
-        self.freno_switch = ttk.Checkbutton(self.manual_frame, text="Freno Presionado", variable=freno_on, command=publicar_control)
-
-        # Por defecto ocultos (modo automático)
-        self.manual_frame.pack_forget()
-
-        # Gráficos
-        self.fig, (self.ax_rpm, self.ax_vel, self.ax_gear) = plt.subplots(3, 1, figsize=(6, 8))
-        plt.tight_layout()
-
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-        self.canvas.get_tk_widget().pack()
-
-        self.update_graphs()  # Primera llamada para iniciar actualización
-
-    def toggle_manual(self):
-        if modo_manual.get():
-            self.manual_frame.pack(pady=5, fill="x")
-            self.acelerador_switch.pack(side="left", padx=10)
-            self.freno_switch.pack(side="left", padx=10)
-        else:
-            self.manual_frame.pack_forget()
-            acelerador_on.set(False)
-            freno_on.set(False)
-            publicar_control()  # publicar con valores 0
-
-    def update_graphs(self):
-        # Limpiar eplotear datos
-        self.ax_rpm.clear()
-        self.ax_vel.clear()
-        self.ax_gear.clear()
-
-        self.ax_rpm.plot(timestamps, rpm_data, marker='o', linestyle='-', color='b')
-        self.ax_rpm.set_title("RPM del Motor")
-        self.ax_rpm.set_xlabel("Tiempo")
-        self.ax_rpm.set_ylabel("RPM")
-
-        self.ax_vel.plot(timestamps, vel_lineal_data, marker='o', linestyle='-', color='g')
-        self.ax_vel.set_title("Velocidad Lineal (km/h)")
-        self.ax_vel.set_xlabel("Tiempo")
-        self.ax_vel.set_ylabel("Velocidad")
-
-        self.ax_gear.plot(timestamps, gear_data, marker='o', linestyle='-', color='r')
-        self.ax_gear.set_title("Marcha")
-        self.ax_gear.set_xlabel("Tiempo")
-        self.ax_gear.set_ylabel("Gear")
-
-        self.fig.autofmt_xdate(rotation=45)
-        self.canvas.draw()
-
-        # Actualizar cada segundo
-        self.after(1000, self.update_graphs)
-
-if __name__ == '__main__':
-    app = TractorDashboard()
-    app.mainloop()
+root.mainloop()
