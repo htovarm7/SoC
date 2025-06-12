@@ -1,193 +1,142 @@
-import tkinter as tk
-from tkinter import messagebox
 import paho.mqtt.client as mqtt
 import json
 import csv
-import os
-import time
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import PySimpleGUI as sg
+import matplotlib.pyplot as plt
+import threading
+from datetime import datetime
 
-# MQTT Configuration
-broker_address = "192.168.137.59"  # Dirección IP del broker MQTT
-topic_pub = "tractor/inputs"       # Tópico al que se envían comandos desde Python
-topic_sub = "tractor/data"         # Tópico desde donde se reciben datos de la ESP32
+# ========== Configuración MQTT ==========
+broker_address = "localhost"  # Cambia por la IP de tu ESP32 o broker real
+topic_pub = "tractor/inputs"  # Topic para enviar al ESP32
+topic_sub = "tractor/data"    # Topic para recibir del ESP32
 
-# Contenedores de datos para gráficas
-time_data = []
+# ========== Datos almacenados ==========
 rpm_data = []
 vel_lineal_data = []
 gear_data = []
+timestamps = []
 
-# Cliente MQTT
-client = mqtt.Client()
+CSV_FILENAME = "tractor_behavior.csv"
+CSV_HEADER = ["timestamp", "rpm", "velocidad_lineal", "gear"]
 
+def write_to_csv(timestamp, rpm, vl, gear):
+    with open(CSV_FILENAME, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        if csvfile.tell() == 0:
+            writer.writerow(CSV_HEADER)
+        writer.writerow([timestamp, f"{rpm:.2f}", f"{vl:.2f}", gear])
+
+# ========== Callbacks MQTT ==========
 def on_connect(client, userdata, flags, rc):
-    print("Conectado al broker MQTT con código:", rc)
+    print("Conectado con código: " + str(rc))
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
-        rpm = data["rpm"]
-        vel_lineal = data["velocity"]
-        gear = data["gear"]
+        rpm = data.get("rpm")
+        vl = data.get("spd")  # CAMBIO: antes era 'vl'
+        gear = data.get("gear")
+        now = datetime.now().strftime("%H:%M:%S")
 
-        timestamp = time.time()
+        if rpm is not None and vl is not None:
+            rpm_data.append(rpm)
+            vel_lineal_data.append(vl)
+            gear_data.append(gear)
+            timestamps.append(now)
 
-        # Agrega datos
-        time_data.append(timestamp)
-        rpm_data.append(rpm)
-        vel_lineal_data.append(vel_lineal)
-        gear_data.append(gear)
+            # Limitar a 20 muestras
+            if len(rpm_data) > 20:
+                rpm_data.pop(0)
+                vel_lineal_data.pop(0)
+                gear_data.pop(0)
+                timestamps.pop(0)
 
-        # Guarda en CSV
-        csv_path = os.path.join(os.getcwd(), "datos_tractor.csv")
-        write_header = not os.path.exists(csv_path)
-        with open(csv_path, "a", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            if write_header:
-                writer.writerow(["Timestamp", "RPM", "Velocidad Lineal (m/s)", "Gear"])
-            writer.writerow([timestamp, rpm, vel_lineal, gear])
+            write_to_csv(now, rpm, vl, gear)
 
-        # En modo automático: llenar entradas GUI con datos recibidos
-        if not manual_mode.get():
-            entry_vel_angular.config(state="normal")
-            entry_trans_ratio.config(state="normal")
-            entry_wheel_radius.config(state="normal")
+            # === Gráficas ===
+            plt.clf()
 
-            entry_vel_angular.delete(0, tk.END)
-            entry_vel_angular.insert(0, str(round(vel_lineal, 2)))  # opcional
-            entry_trans_ratio.delete(0, tk.END)
-            entry_trans_ratio.insert(0, str(gear))
-            entry_wheel_radius.delete(0, tk.END)
-            entry_wheel_radius.insert(0, "0")
+            plt.subplot(3, 1, 1)
+            plt.plot(timestamps, rpm_data, 'b-o', label='RPM')
+            plt.title("RPM del Tractor")
+            plt.ylabel("RPM")
+            plt.grid(True)
+            plt.legend()
 
-            entry_vel_angular.config(state="readonly")
-            entry_trans_ratio.config(state="readonly")
-            entry_wheel_radius.config(state="readonly")
+            plt.subplot(3, 1, 2)
+            plt.plot(timestamps, vel_lineal_data, 'g-x', label='Velocidad (km/h)')
+            plt.ylabel("Velocidad")
+            plt.grid(True)
+            plt.legend()
+
+            plt.subplot(3, 1, 3)
+            plt.plot(timestamps, gear_data, 'r-s', label='Marcha')
+            plt.xlabel("Tiempo")
+            plt.ylabel("Gear")
+            plt.grid(True)
+            plt.legend()
+
+            plt.tight_layout()
+            plt.draw()
+            plt.pause(0.1)
 
     except Exception as e:
-        print("Error procesando mensaje MQTT:", e)
+        print("❌ Error al procesar el mensaje:", e)
 
-def send_brake():
-    if not manual_mode.get():
-        messagebox.showinfo("Modo Automático", "No se puede activar freno en modo automático.")
-        return
+# ========== Envío de comandos ==========
+def send_data(vel_angular, trans_ratio, wheel_radius):
+    data = {
+        "velocidad_angular": vel_angular,
+        "relacion_transmision": trans_ratio,
+        "radio_rueda": wheel_radius
+    }
+    client.publish(topic_pub, json.dumps(data))
+    print(f"✅ Datos enviados: {data}")
 
-    payload = {"freno": True}
-    client.publish(topic_pub, json.dumps(payload))
-    print("Se envió freno:", payload)
-
-def send_data():
-    if not manual_mode.get():
-        messagebox.showinfo("Modo Automático", "No se pueden enviar datos manualmente.")
-        return
-
-    try:
-        vel_angular  = float(entry_vel_angular.get())
-        trans_ratio  = float(entry_trans_ratio.get())
-        wheel_radius = float(entry_wheel_radius.get())
-        payload = {
-            "velocidad_angular": vel_angular,
-            "relacion_transmision": trans_ratio,
-            "radio_rueda": wheel_radius
-        }
-        client.publish(topic_pub, json.dumps(payload))
-        print("Se enviaron datos:", payload)
-    except ValueError:
-        messagebox.showerror("Error", "Por favor, introduce valores numéricos válidos.")
-
-def toggle_mode():
-    if manual_mode.get():
-        send_button.config(state="normal")
-        entry_vel_angular.config(state="normal")
-        entry_trans_ratio.config(state="normal")
-        entry_wheel_radius.config(state="normal")
-    else:
-        send_button.config(state="disabled")
-        entry_vel_angular.config(state="readonly")
-        entry_trans_ratio.config(state="readonly")
-        entry_wheel_radius.config(state="readonly")
-
-# Configura cliente MQTT
+# ========== Cliente MQTT ==========
+client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
-client.loop_start()
 
-# Interfaz Gráfica
-root = tk.Tk()
-root.title("Dashboard de Control de Tractor")
+def mqtt_loop():
+    client.loop_forever()
 
-manual_mode = tk.BooleanVar(value=True)
+mqtt_thread = threading.Thread(target=mqtt_loop)
+mqtt_thread.daemon = True
+mqtt_thread.start()
 
-tk.Label(root, text="Velocidad Angular (rad/s)").grid(row=0, column=0)
-entry_vel_angular = tk.Entry(root)
-entry_vel_angular.grid(row=0, column=1)
+# ========== GUI ==========
+layout = [
+    [sg.Text('Velocidad Angular (rad/s)'), sg.InputText(key='-VEL-')],
+    [sg.Text('Relación de Transmisión'), sg.InputText(key='-TRANS-')],
+    [sg.Text('Radio de la Rueda (m)'), sg.InputText(key='-RAD-')],
+    [sg.Button('Enviar')]
+]
 
-tk.Label(root, text="Relación Transmisión").grid(row=1, column=0)
-entry_trans_ratio = tk.Entry(root)
-entry_trans_ratio.grid(row=1, column=1)
+window = sg.Window('Control del Tractor', layout)
+plt.ion()
+plt.figure(figsize=(10, 8))
+plt.show()
 
-tk.Label(root, text="Radio de Rueda (m)").grid(row=2, column=0)
-entry_wheel_radius = tk.Entry(root)
-entry_wheel_radius.grid(row=2, column=1)
+# ========== Loop principal ==========
+while True:
+    event, values = window.read(timeout=100)
+    if event == sg.WIN_CLOSED:
+        break
+    if event == 'Enviar':
+        try:
+            vel_ang = float(values['-VEL-'])
+            trans = float(values['-TRANS-'])
+            radius = float(values['-RAD-'])
+            send_data(vel_ang, trans, radius)
+        except:
+            print("⚠️ Entrada inválida. Asegúrate de ingresar números.")
 
-send_button = tk.Button(root, text="Enviar Datos", command=send_data)
-send_button.grid(row=3, column=0, columnspan=2, pady=10)
-
-brake_button = tk.Button(root, text="Activar Freno", command=send_brake)
-brake_button.grid(row=4, column=0, columnspan=2, pady=5)
-
-mode_switch = tk.Checkbutton(root, text="Modo Manual / Automático",
-                             variable=manual_mode, command=toggle_mode)
-mode_switch.grid(row=5, column=0, columnspan=2, pady=5)
-
-# Gráficas
-fig = Figure(figsize=(6, 6))
-ax_rpm = fig.add_subplot(311)
-ax_vel = fig.add_subplot(312)
-ax_gear = fig.add_subplot(313)
-
-canvas = FigureCanvasTkAgg(fig, master=root)
-canvas.get_tk_widget().grid(row=6, column=0, columnspan=2)
-
-def update_plot():
-    if len(time_data) == 0:
-        root.after(100, update_plot)
-        return
-
-    min_len = min(len(time_data), len(rpm_data), len(vel_lineal_data), len(gear_data))
-    t_rel = [t - time_data[0] for t in time_data[:min_len]]
-
-    ax_rpm.clear()
-    ax_vel.clear()
-    ax_gear.clear()
-
-    ax_rpm.plot(t_rel, rpm_data[:min_len], label="RPM", color='blue')
-    ax_rpm.set_ylabel("RPM")
-    ax_rpm.legend()
-
-    ax_vel.plot(t_rel, vel_lineal_data[:min_len], label="Velocidad (m/s)", color='green')
-    ax_vel.set_ylabel("Velocidad")
-    ax_vel.legend()
-
-    ax_gear.plot(t_rel, gear_data[:min_len], label="Marcha", color='red', marker='o')
-    ax_gear.set_ylabel("Marcha")
-    ax_gear.legend()
-
-    fig.tight_layout()
-    canvas.draw()
-    root.after(100, update_plot)
-
-toggle_mode()
-root.after(100, update_plot)
-
-def on_closing():
-    client.loop_stop()
-    client.disconnect()
-    root.destroy()
-
-root.protocol("WM_DELETE_WINDOW", on_closing)
-root.mainloop()
+window.close()
+client.loop_stop()
+client.disconnect()
+plt.ioff()
+plt.show()
