@@ -24,28 +24,61 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
+
     print("Mensaje recibido:", msg.payload.decode())
+
     try:
+
         data = json.loads(msg.payload.decode())
+
         rpm = data["rpm"]
+
         vel_lineal = data["velocity"]
+
         gear = data["gear"]
 
+
+
         rpm_data.append(rpm)
+
         vel_lineal_data.append(vel_lineal)
+
         gear_data.append(gear)
 
-        # Guarda CSV junto al script
-        csv_path = os.path.join(os.path.dirname(os.path.abspath(_file_)), "datos_tractor.csv")
+
+
+        # Construye la ruta al CSV usando _file_
+
+        csv_path = os.path.join(
+
+            os.path.dirname(os.path.abspath(__file__)),
+
+            "datos_tractor.csv"
+
+        )
+
         write_header = not os.path.exists(csv_path)
-        with open(csv_path, "a", newline="") as f:
-            writer = csv.writer(f)
+
+
+
+        # Abre y escribe usando 'csvfile', nunca 'file' ni 'file'
+
+        with open(csv_path, "a", newline="") as csvfile:
+
+            writer = csv.writer(csvfile)
+
             if write_header:
+
                 writer.writerow(["RPM", "Velocidad Lineal (m/s)", "Gear"])
+
             writer.writerow([rpm, vel_lineal, gear])
 
+
+
         plot_data()
+
     except Exception as e:
+
         print("Error procesando mensaje:", e)
 
 def plot_data():
