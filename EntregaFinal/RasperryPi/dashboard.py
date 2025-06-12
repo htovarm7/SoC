@@ -1,245 +1,118 @@
-#!/usr/bin/env python3
-
-import sys
-
-import json
-
+import tkinter as tk
+from tkinter import ttk
 import threading
-
+import json
 from datetime import datetime
-
-
 
 import paho.mqtt.client as mqtt
 
-from PySide6 import QtWidgets, QtCore
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+from matplotlib import dates as mdates
+from matplotlib.animation import FuncAnimation
 
-import pyqtgraph as pg
-
-
-
-# === MQTT Setup ===
-
-BROKER    = "192.168.137.59"
-
+# === CONFIGURACIÓN MQTT ===
+BROKER    = "192.168.137.59"  # ← Ajusta a tu broker
 TOPIC_SUB = "tractor/data"
-
 TOPIC_PUB = "tractor/control"
 
+rpm_data, vel_data, gear_data, timestamps = [], [], [], []
 
-
-rpm_data   = []
-
-vel_data   = []
-
-gear_data  = []
-
-timestamps = []
-
-
-
-class TractorDashboard(QtWidgets.QMainWindow):
-
-    def _init_(self):
-
-        super()._init_()
-
-        self.setWindowTitle("Dashboard del Tractor")
-
-        self.resize(1000, 600)
-
-
-
-        central = QtWidgets.QWidget()
-
-        self.setCentralWidget(central)
-
-        vbox = QtWidgets.QVBoxLayout(central)
-
-
-
-        # — Controles Manual/Auto —
-
-        hbox = QtWidgets.QHBoxLayout()
-
-        self.chk_manual   = QtWidgets.QCheckBox("Modo Manual")
-
-        self.chk_throttle = QtWidgets.QCheckBox("Acelerador")
-
-        self.chk_brake    = QtWidgets.QCheckBox("Freno")
-
-        self.chk_throttle.setEnabled(False)
-
-        self.chk_brake.setEnabled(False)
-
-        hbox.addWidget(self.chk_manual)
-
-        hbox.addWidget(self.chk_throttle)
-
-        hbox.addWidget(self.chk_brake)
-
-        vbox.addLayout(hbox)
-
-
-
-        self.chk_manual.stateChanged.connect(self.on_manual_toggled)
-
-        self.chk_throttle.stateChanged.connect(self.publish_control)
-
-        self.chk_brake.stateChanged.connect(self.publish_control)
-
-
-
-        # — Gráficas con pyqtgraph —
-
-        pg.setConfigOptions(antialias=True)
-
-        self.plot_rpm  = pg.PlotWidget(title="RPM del Motor")
-
-        self.plot_vel  = pg.PlotWidget(title="Velocidad Lineal (km/h)")
-
-        self.plot_gear = pg.PlotWidget(title="Marcha")
-
-        for pw in (self.plot_rpm, self.plot_vel, self.plot_gear):
-
-            pw.showGrid(x=True, y=True)
-
-
-
-        self.curve_rpm  = self.plot_rpm.plot(pen='y', symbol='o')
-
-        self.curve_vel  = self.plot_vel.plot(pen='c', symbol='o')
-
-        self.curve_gear = self.plot_gear.plot(pen='m', symbol='o')
-
-
-
-        vbox.addWidget(self.plot_rpm)
-
-        vbox.addWidget(self.plot_vel)
-
-        vbox.addWidget(self.plot_gear)
-
-
-
-        # Timer para refrescar gráficas
-
-        timer = QtCore.QTimer(self)
-
-        timer.timeout.connect(self.update_plots)
-
-        timer.start(500)  # cada 500 ms
-
-
-
-    def on_manual_toggled(self, state):
-
-        ena = state == QtCore.Qt.Checked
-
-        self.chk_throttle.setEnabled(ena)
-
-        self.chk_brake.setEnabled(ena)
-
-        if not ena:
-
-            self.chk_throttle.setChecked(False)
-
-            self.chk_brake.setChecked(False)
-
-
-
-    def publish_control(self):
-
-        if self.chk_manual.isChecked():
-
-            payload = json.dumps({
-
-                "throttle": 100 if self.chk_throttle.isChecked() else 0,
-
-                "brake":    100 if self.chk_brake.isChecked()    else 0
-
-            })
-
-            mqtt_client.publish(TOPIC_PUB, payload)
-
-            print("📤 Control publicado:", payload)
-
-
-
-    def update_plots(self):
-
-        if not timestamps:
-
-            return
-
-        # X como segundos desde el primer timestamp
-
-        x = [(t - timestamps[0]).total_seconds() for t in timestamps]
-
-        self.curve_rpm.setData(x, rpm_data)
-
-        self.curve_vel.setData(x, vel_data)
-
-        self.curve_gear.setData(x, gear_data)
-
-
-
+# === CALLBACKS MQTT ===
 def on_connect(client, userdata, flags, rc, properties=None):
-
-    print("✅ MQTT conectado, código:", rc)
-
+    print("✅ MQTT conectado con código", rc)
     client.subscribe(TOPIC_SUB)
 
-
-
 def on_message(client, userdata, msg):
-
     try:
-
-        data = json.loads(msg.payload.decode())
-
-        if all(k in data for k in ("rpm","spd","gear")):
-
+        payload = json.loads(msg.payload.decode())
+        if all(k in payload for k in ("rpm","spd","gear")):
             now = datetime.now()
-
-            rpm_data.append(data["rpm"])
-
-            vel_data.append(data["spd"])
-
-            gear_data.append(data["gear"])
-
+            rpm_data.append(payload["rpm"])
+            vel_data.append(payload["spd"])
+            gear_data.append(payload["gear"])
             timestamps.append(now)
-
-            print(f"🕒 {now.strftime('%H:%M:%S')} → rpm={data['rpm']}, spd={data['spd']}, gear={data['gear']}")
-
+            print(f"🕒 {now.strftime('%H:%M:%S')}  rpm={payload['rpm']} spd={payload['spd']} gear={payload['gear']}")
     except Exception as e:
-
-        print("⚠ Error procesando mensaje:", e)
-
-
-
-# === Inicializar MQTT ===
+        print("⚠ Error al procesar MQTT:", e)
 
 mqtt_client = mqtt.Client(protocol=mqtt.MQTTv311)
-
 mqtt_client.on_connect = on_connect
-
 mqtt_client.on_message = on_message
-
 mqtt_client.connect(BROKER, 1883, 60)
-
 threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
 
+# === INTERFAZ TKINTER ===
+root = tk.Tk()
+root.title("Dashboard del Tractor")
 
+# Variables de estado
+modo_manual = tk.BooleanVar(value=False)
+throttle_on = tk.BooleanVar(value=False)
+brake_on    = tk.BooleanVar(value=False)
 
-# === Lanzar la app ===
+# — Controles —
+ctrl = ttk.Frame(root, padding=8)
+ctrl.pack(fill=tk.X)
+ttk.Checkbutton(ctrl, text="Modo Manual", variable=modo_manual,
+    command=lambda: manual_frame.pack_forget() if not modo_manual.get() else manual_frame.pack(fill=tk.X, pady=5)
+).pack(side=tk.LEFT)
 
-if _name_ == "_main_":
+manual_frame = ttk.Frame(root, padding=8, relief=tk.RIDGE)
+ttk.Checkbutton(manual_frame, text="Acelerador", variable=throttle_on,
+    command=lambda: publish_control()
+).pack(side=tk.LEFT, padx=5)
+ttk.Checkbutton(manual_frame, text="Freno", variable=brake_on,
+    command=lambda: publish_control()
+).pack(side=tk.LEFT, padx=5)
 
-    app = QtWidgets.QApplication(sys.argv)
+# — Figura y Canvas —
+fig = Figure(figsize=(8, 6), dpi=100)
+ax1 = fig.add_subplot(311)
+ax2 = fig.add_subplot(312)
+ax3 = fig.add_subplot(313)
+for ax, title, ylabel in (
+    (ax1, "RPM del Motor", "RPM"),
+    (ax2, "Velocidad Lineal", "km/h"),
+    (ax3, "Marcha", "Gear"),
+):
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax.grid(True)
+fig.autofmt_xdate()
 
-    win = TractorDashboard()
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-    win.show()
+# — Función para publicar control —
+def publish_control():
+    if modo_manual.get():
+        msg = {"throttle":100 if throttle_on.get() else 0,
+               "brake":   100 if brake_on.get()    else 0}
+        mqtt_client.publish(TOPIC_PUB, json.dumps(msg))
+        print("📤 Publicado:", msg)
 
-    sys.exit(app.exec())
+# — Función de animación —
+def animate(frame):
+    if not timestamps:
+        return
+    x = mdates.date2num(timestamps)
+    ax1.clear(); ax2.clear(); ax3.clear()
+
+    ax1.plot_date(x, rpm_data, '-o')
+    ax2.plot_date(x, vel_data, '-o')
+    ax3.plot_date(x, gear_data, '-o')
+
+    for ax, ylabel in ((ax1,"RPM"), (ax2,"km/h"), (ax3,"Gear")):
+        ax.set_ylabel(ylabel)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax.relim(); ax.autoscale_view(True, tight=True)
+    fig.autofmt_xdate()
+
+# — Iniciar Animación cada 1s —
+ani = FuncAnimation(fig, animate, interval=1000)
+
+root.mainloop()
