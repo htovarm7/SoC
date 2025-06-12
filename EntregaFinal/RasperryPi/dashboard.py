@@ -9,33 +9,33 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # MQTT Configuration
-broker_address = "192.168.137.59"
-topic_pub = "tractor/inputs"
-topic_sub = "tractor/data"
+broker_address = "192.168.137.59"  # Dirección IP del broker MQTT
+topic_pub = "tractor/inputs"       # Tópico al que se envían comandos desde Python
+topic_sub = "tractor/data"         # Tópico desde donde se reciben datos de la ESP32
 
-# Data containers
+# Contenedores de datos para gráficas
 time_data = []
 rpm_data = []
 vel_lineal_data = []
 gear_data = []
 
-# MQTT Client Setup
+# Cliente MQTT
 client = mqtt.Client()
 
 def on_connect(client, userdata, flags, rc):
-    print("Conectado con código:", rc)
+    print("Conectado al broker MQTT con código:", rc)
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
-
         rpm = data["rpm"]
         vel_lineal = data["velocity"]
         gear = data["gear"]
 
-        timestamp = time.time()  # timestamp en segundos
+        timestamp = time.time()
 
+        # Agrega datos
         time_data.append(timestamp)
         rpm_data.append(rpm)
         vel_lineal_data.append(vel_lineal)
@@ -50,42 +50,38 @@ def on_message(client, userdata, msg):
                 writer.writerow(["Timestamp", "RPM", "Velocidad Lineal (m/s)", "Gear"])
             writer.writerow([timestamp, rpm, vel_lineal, gear])
 
-        # Si está en modo automático, actualizar entradas con datos recibidos
+        # En modo automático: llenar entradas GUI con datos recibidos
         if not manual_mode.get():
-            # Actualiza entradas de la GUI (refleja valores recibidos)
             entry_vel_angular.config(state="normal")
             entry_trans_ratio.config(state="normal")
             entry_wheel_radius.config(state="normal")
 
             entry_vel_angular.delete(0, tk.END)
-            entry_vel_angular.insert(0, str(round(vel_lineal, 3)))  # Ejemplo: mostrar velocidad lineal
+            entry_vel_angular.insert(0, str(round(vel_lineal, 2)))  # opcional
             entry_trans_ratio.delete(0, tk.END)
-            entry_trans_ratio.insert(0, str(gear))  # Mostrar marcha
+            entry_trans_ratio.insert(0, str(gear))
             entry_wheel_radius.delete(0, tk.END)
-            entry_wheel_radius.insert(0, "0")  # Puede ser algún valor fijo o calculado
+            entry_wheel_radius.insert(0, "0")
 
-            # Bloquear edición de nuevo
             entry_vel_angular.config(state="readonly")
             entry_trans_ratio.config(state="readonly")
             entry_wheel_radius.config(state="readonly")
 
     except Exception as e:
-        print("Error procesando mensaje:", e)
+        print("Error procesando mensaje MQTT:", e)
 
 def send_brake():
     if not manual_mode.get():
-        messagebox.showinfo("Modo Automático", "Actualmente en modo automático, no se puede activar el freno manualmente.")
+        messagebox.showinfo("Modo Automático", "No se puede activar freno en modo automático.")
         return
 
-    payload = {
-        "freno": True
-    }
+    payload = {"freno": True}
     client.publish(topic_pub, json.dumps(payload))
-    print("Freno activado:", payload)
+    print("Se envió freno:", payload)
 
 def send_data():
     if not manual_mode.get():
-        messagebox.showinfo("Modo Automático", "Actualmente en modo automático, no se pueden enviar datos manualmente.")
+        messagebox.showinfo("Modo Automático", "No se pueden enviar datos manualmente.")
         return
 
     try:
@@ -93,14 +89,14 @@ def send_data():
         trans_ratio  = float(entry_trans_ratio.get())
         wheel_radius = float(entry_wheel_radius.get())
         payload = {
-            "velocidad_angular":    vel_angular,
+            "velocidad_angular": vel_angular,
             "relacion_transmision": trans_ratio,
-            "radio_rueda":          wheel_radius
+            "radio_rueda": wheel_radius
         }
         client.publish(topic_pub, json.dumps(payload))
-        print("Datos enviados:", payload)
+        print("Se enviaron datos:", payload)
     except ValueError:
-        messagebox.showerror("Error", "Ingresa valores numéricos válidos")
+        messagebox.showerror("Error", "Por favor, introduce valores numéricos válidos.")
 
 def toggle_mode():
     if manual_mode.get():
@@ -114,17 +110,17 @@ def toggle_mode():
         entry_trans_ratio.config(state="readonly")
         entry_wheel_radius.config(state="readonly")
 
-# Setup MQTT callbacks
+# Configura cliente MQTT
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
 client.loop_start()
 
-# Tkinter GUI Setup
+# Interfaz Gráfica
 root = tk.Tk()
-# Variable para modo de control: True = manual (dashboard), False = automático (potenciómetro)
+root.title("Dashboard de Control de Tractor")
+
 manual_mode = tk.BooleanVar(value=True)
-root.title("Control de Tractor")
 
 tk.Label(root, text="Velocidad Angular (rad/s)").grid(row=0, column=0)
 entry_vel_angular = tk.Entry(root)
@@ -138,18 +134,17 @@ tk.Label(root, text="Radio de Rueda (m)").grid(row=2, column=0)
 entry_wheel_radius = tk.Entry(root)
 entry_wheel_radius.grid(row=2, column=1)
 
-send_button = tk.Button(root, text="Enviar", command=send_data)
+send_button = tk.Button(root, text="Enviar Datos", command=send_data)
 send_button.grid(row=3, column=0, columnspan=2, pady=10)
 
-brake_button = tk.Button(root, text="Freno", command=send_brake)
+brake_button = tk.Button(root, text="Activar Freno", command=send_brake)
 brake_button.grid(row=4, column=0, columnspan=2, pady=5)
 
-# Switch para modo manual/automático
 mode_switch = tk.Checkbutton(root, text="Modo Manual / Automático",
                              variable=manual_mode, command=toggle_mode)
 mode_switch.grid(row=5, column=0, columnspan=2, pady=5)
 
-# Matplotlib Figure embedded in Tkinter
+# Gráficas
 fig = Figure(figsize=(6, 6))
 ax_rpm = fig.add_subplot(311)
 ax_vel = fig.add_subplot(312)
@@ -163,36 +158,27 @@ def update_plot():
         root.after(100, update_plot)
         return
 
-    # Recorta para que todas las listas tengan la misma longitud
     min_len = min(len(time_data), len(rpm_data), len(vel_lineal_data), len(gear_data))
-    if min_len == 0:
-        root.after(100, update_plot)
-        return
-
     t_rel = [t - time_data[0] for t in time_data[:min_len]]
-    rpm_plot = rpm_data[:min_len]
-    vel_plot = vel_lineal_data[:min_len]
-    gear_plot = gear_data[:min_len]
 
     ax_rpm.clear()
     ax_vel.clear()
     ax_gear.clear()
 
-    ax_rpm.plot(t_rel, rpm_plot, label="RPM", color='blue')
+    ax_rpm.plot(t_rel, rpm_data[:min_len], label="RPM", color='blue')
     ax_rpm.set_ylabel("RPM")
     ax_rpm.legend()
-    
-    ax_vel.plot(t_rel, vel_plot, label="Vel. Lineal (m/s)", color='green')
+
+    ax_vel.plot(t_rel, vel_lineal_data[:min_len], label="Velocidad (m/s)", color='green')
     ax_vel.set_ylabel("Velocidad")
     ax_vel.legend()
-    
-    ax_gear.plot(t_rel, gear_plot, label="Marcha", color='red', marker='o')
+
+    ax_gear.plot(t_rel, gear_data[:min_len], label="Marcha", color='red', marker='o')
     ax_gear.set_ylabel("Marcha")
     ax_gear.legend()
 
     fig.tight_layout()
     canvas.draw()
-
     root.after(100, update_plot)
 
 toggle_mode()
