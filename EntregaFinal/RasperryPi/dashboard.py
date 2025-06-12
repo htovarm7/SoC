@@ -91,7 +91,12 @@ def send_data():
         messagebox.showerror("Error", "Por favor ingresa valores numéricos válidos")
 
 def start_mqtt():
-    client.loop_forever()
+    try:
+        client.connect(broker_address, 1883, 60)
+        client.loop_forever()
+    except Exception as e:
+        print("Error en conexión MQTT:", e)
+
 
 # GUI Setup
 root = tk.Tk()
