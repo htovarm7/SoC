@@ -1,0 +1,3 @@
+../Src/adclib.c:6:6:USER_ADC_Init	16	static
+../Src/adclib.c:52:9:USER_ADC_Calibration	8	static
+../Src/adclib.c:63:10:USER_ADC_Read	8	static
