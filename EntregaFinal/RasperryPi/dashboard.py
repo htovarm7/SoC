@@ -19,9 +19,6 @@ rpm_data = []
 vel_lineal_data = []
 gear_data = []
 
-# Variable para modo de control: True = manual (dashboard), False = automático (potenciómetro)
-manual_mode = tk.BooleanVar(value=True)
-
 # MQTT Client Setup
 client = mqtt.Client()
 
@@ -114,6 +111,8 @@ client.loop_start()
 
 # Tkinter GUI Setup
 root = tk.Tk()
+# Variable para modo de control: True = manual (dashboard), False = automático (potenciómetro)
+manual_mode = tk.BooleanVar(value=True)
 root.title("Control de Tractor")
 
 tk.Label(root, text="Velocidad Angular (rad/s)").grid(row=0, column=0)
