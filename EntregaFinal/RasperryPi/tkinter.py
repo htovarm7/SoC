@@ -8,7 +8,7 @@ import os
 import threading
 
 # MQTT Configuration
-broker_address = "192.168.137.214"
+broker_address ="192.168.137.214"
 topic_pub = "tractor/inputs"
 topic_sub = "tractor/outputs"
 
@@ -65,13 +65,7 @@ client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
 
-enviar_datos = tk.BooleanVar(value=True)  # Activado por defecto
-
 def send_data():
-    if not enviar_datos.get():
-        print("El envío de datos está desactivado.")
-        return
-
     try:
         vel_angular = float(entry_vel_angular.get())
         trans_ratio = float(entry_trans_ratio.get())
