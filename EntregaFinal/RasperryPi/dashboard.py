@@ -55,13 +55,22 @@ def on_message(client, userdata, msg):
 
         # Si está en modo automático, actualizar entradas con datos recibidos
         if not manual_mode.get():
-            # Actualiza entradas de la GUI (esto refleja los valores recibidos)
+            # Actualiza entradas de la GUI (refleja valores recibidos)
+            entry_vel_angular.config(state="normal")
+            entry_trans_ratio.config(state="normal")
+            entry_wheel_radius.config(state="normal")
+
             entry_vel_angular.delete(0, tk.END)
-            entry_vel_angular.insert(0, str(round(vel_lineal, 3)))  # ejemplo: usa velocidad lineal para demo
+            entry_vel_angular.insert(0, str(round(vel_lineal, 3)))  # Ejemplo: mostrar velocidad lineal
             entry_trans_ratio.delete(0, tk.END)
-            entry_trans_ratio.insert(0, str(gear))  # ejemplo: usa gear para demo
+            entry_trans_ratio.insert(0, str(gear))  # Mostrar marcha
             entry_wheel_radius.delete(0, tk.END)
-            entry_wheel_radius.insert(0, "0")  # o algún valor fijo / calculado
+            entry_wheel_radius.insert(0, "0")  # Puede ser algún valor fijo o calculado
+
+            # Bloquear edición de nuevo
+            entry_vel_angular.config(state="readonly")
+            entry_trans_ratio.config(state="readonly")
+            entry_wheel_radius.config(state="readonly")
 
     except Exception as e:
         print("Error procesando mensaje:", e)
@@ -88,13 +97,11 @@ def send_data():
 def toggle_mode():
     if manual_mode.get():
         send_button.config(state="normal")
-        # Opcional: limpiar o permitir editar entradas manualmente
         entry_vel_angular.config(state="normal")
         entry_trans_ratio.config(state="normal")
         entry_wheel_radius.config(state="normal")
     else:
         send_button.config(state="disabled")
-        # En modo automático, bloquea edición para reflejar datos recibidos
         entry_vel_angular.config(state="readonly")
         entry_trans_ratio.config(state="readonly")
         entry_wheel_radius.config(state="readonly")
@@ -125,7 +132,7 @@ send_button = tk.Button(root, text="Enviar", command=send_data)
 send_button.grid(row=3, column=0, columnspan=2, pady=10)
 
 # Switch para modo manual/automático
-mode_switch = tk.Checkbutton(root, text="Modo Manual (Dashboard) / Automático (Potenciómetro)",
+mode_switch = tk.Checkbutton(root, text="Modo Manual / Automático",
                              variable=manual_mode, command=toggle_mode)
 mode_switch.grid(row=5, column=0, columnspan=2, pady=5)
 
@@ -154,7 +161,6 @@ def update_plot():
     vel_plot = vel_lineal_data[:min_len]
     gear_plot = gear_data[:min_len]
 
-    # Limpia e inserta las gráficas
     ax_rpm.clear()
     ax_vel.clear()
     ax_gear.clear()
@@ -174,16 +180,11 @@ def update_plot():
     fig.tight_layout()
     canvas.draw()
 
-    # Llama esta función cada 100 ms para actualizar la gráfica
     root.after(100, update_plot)
 
-# Inicializa estado del switch para configurar UI
 toggle_mode()
-
-# Arranca la actualización periódica del gráfico
 root.after(100, update_plot)
 
-# Cierre limpio
 def on_closing():
     client.loop_stop()
     client.disconnect()
