@@ -1,101 +1,47 @@
+import dash
+from dash import html, dcc, Input, Output
+import dash_daq as daq
+import plotly.graph_objs as go
 import paho.mqtt.client as mqtt
 import json
-import csv
-import PySimpleGUI as sg
-import matplotlib.pyplot as plt
 import threading
 from datetime import datetime
 
-# ========== Configuración MQTT ==========
-broker_address = "localhost"  # Cambia por la IP de tu ESP32 o broker real
-topic_pub = "tractor/inputs"  # Topic para enviar al ESP32
-topic_sub = "tractor/data"    # Topic para recibir del ESP32
+# === MQTT Setup ===
+broker_address = "localhost"
+topic_sub = "tractor/data"
+topic_pub = "tractor/control"
 
-# ========== Datos almacenados ==========
 rpm_data = []
 vel_lineal_data = []
 gear_data = []
 timestamps = []
 
-CSV_FILENAME = "tractor_behavior.csv"
-CSV_HEADER = ["timestamp", "rpm", "velocidad_lineal", "gear"]
+modo_manual = False
 
-def write_to_csv(timestamp, rpm, vl, gear):
-    with open(CSV_FILENAME, 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        if csvfile.tell() == 0:
-            writer.writerow(CSV_HEADER)
-        writer.writerow([timestamp, f"{rpm:.2f}", f"{vl:.2f}", gear])
-
-# ========== Callbacks MQTT ==========
+# MQTT callbacks
 def on_connect(client, userdata, flags, rc):
-    print("Conectado con código: " + str(rc))
+    print("Conectado al broker MQTT con código:", rc)
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
         rpm = data.get("rpm")
-        vl = data.get("spd")  # CAMBIO: antes era 'vl'
+        vl = data.get("spd")
         gear = data.get("gear")
         now = datetime.now().strftime("%H:%M:%S")
 
-        if rpm is not None and vl is not None:
+        if rpm is not None and vl is not None and gear is not None:
             rpm_data.append(rpm)
             vel_lineal_data.append(vl)
             gear_data.append(gear)
             timestamps.append(now)
 
-            # Limitar a 20 muestras
-            if len(rpm_data) > 20:
-                rpm_data.pop(0)
-                vel_lineal_data.pop(0)
-                gear_data.pop(0)
-                timestamps.pop(0)
-
-            write_to_csv(now, rpm, vl, gear)
-
-            # === Gráficas ===
-            plt.clf()
-
-            plt.subplot(3, 1, 1)
-            plt.plot(timestamps, rpm_data, 'b-o', label='RPM')
-            plt.title("RPM del Tractor")
-            plt.ylabel("RPM")
-            plt.grid(True)
-            plt.legend()
-
-            plt.subplot(3, 1, 2)
-            plt.plot(timestamps, vel_lineal_data, 'g-x', label='Velocidad (km/h)')
-            plt.ylabel("Velocidad")
-            plt.grid(True)
-            plt.legend()
-
-            plt.subplot(3, 1, 3)
-            plt.plot(timestamps, gear_data, 'r-s', label='Marcha')
-            plt.xlabel("Tiempo")
-            plt.ylabel("Gear")
-            plt.grid(True)
-            plt.legend()
-
-            plt.tight_layout()
-            plt.draw()
-            plt.pause(0.1)
-
     except Exception as e:
-        print("❌ Error al procesar el mensaje:", e)
+        print("Error al procesar el mensaje:", e)
 
-# ========== Envío de comandos ==========
-def send_data(vel_angular, trans_ratio, wheel_radius):
-    data = {
-        "velocidad_angular": vel_angular,
-        "relacion_transmision": trans_ratio,
-        "radio_rueda": wheel_radius
-    }
-    client.publish(topic_pub, json.dumps(data))
-    print(f"✅ Datos enviados: {data}")
-
-# ========== Cliente MQTT ==========
+# MQTT client setup
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
@@ -108,35 +54,92 @@ mqtt_thread = threading.Thread(target=mqtt_loop)
 mqtt_thread.daemon = True
 mqtt_thread.start()
 
-# ========== GUI ==========
-layout = [
-    [sg.Text('Velocidad Angular (rad/s)'), sg.InputText(key='-VEL-')],
-    [sg.Text('Relación de Transmisión'), sg.InputText(key='-TRANS-')],
-    [sg.Text('Radio de la Rueda (m)'), sg.InputText(key='-RAD-')],
-    [sg.Button('Enviar')]
-]
+# === Dash App ===
+app = dash.Dash(__name__)
+app.title = "Tractor Dashboard"
 
-window = sg.Window('Control del Tractor', layout)
-plt.ion()
-plt.figure(figsize=(10, 8))
-plt.show()
+app.layout = html.Div([
+    html.H1("Dashboard del Tractor"),
+    
+    daq.ToggleSwitch(
+        id='modo-switch',
+        label=['Automático', 'Manual'],
+        value=False
+    ),
 
-# ========== Loop principal ==========
-while True:
-    event, values = window.read(timeout=100)
-    if event == sg.WIN_CLOSED:
-        break
-    if event == 'Enviar':
-        try:
-            vel_ang = float(values['-VEL-'])
-            trans = float(values['-TRANS-'])
-            radius = float(values['-RAD-'])
-            send_data(vel_ang, trans, radius)
-        except:
-            print("⚠️ Entrada inválida. Asegúrate de ingresar números.")
+    html.Div([
+        html.Label('Acelerador'),
+        daq.BooleanSwitch(
+            id='btn-acelerador',
+            on=False,
+            label="Encendido",
+            labelPosition="top"
+        
+        ),
+        html.Br(),
+        
+        html.Label('Freno'),
+        daq.BooleanSwitch(
+            id='btn-freno',
+            on=False,
+            label="Presionado",
+            labelPosition="top"
+        )
+    ], id='manual-controls', style={'display': 'none'}),
+    
+    dcc.Graph(id='rpm-graph'),
+    dcc.Graph(id='vel-graph'),
+    dcc.Graph(id='gear-graph'),
+    
+    dcc.Interval(id='interval-component', interval=1000, n_intervals=0),
+    
+    html.Div(id='dummy-output', style={'display': 'none'})
+])
 
-window.close()
-client.loop_stop()
-client.disconnect()
-plt.ioff()
-plt.show()
+@app.callback(
+    Output('manual-controls', 'style'),
+    Input('modo-switch', 'value')
+)
+def toggle_manual_controls(mode):
+    return {'display': 'block'} if mode else {'display': 'none'}
+
+@app.callback(
+    Output('dummy-output', 'children'),
+    Input('btn-acelerador', 'on'),
+    Input('btn-freno', 'on'),
+    Input('modo-switch', 'value'),
+    prevent_initial_call=True
+)
+
+def publish_control(acel_on, freno_on, modo):
+    if modo:
+        throttle = 100 if acel_on else 0
+        brake = 100 if freno_on else 0
+        
+        payload = json.dumps({"throttle": throttle, "brake": brake})
+        client.publish(topic_pub, payload)
+    return ""
+
+@app.callback(
+    Output('rpm-graph', 'figure'),
+    Output('vel-graph', 'figure'),
+    Output('gear-graph', 'figure'),
+    Input('interval-component', 'n_intervals')
+)
+def update_graphs(n):
+    rpm_fig = go.Figure()
+    rpm_fig.add_trace(go.Scatter(x=timestamps, y=rpm_data, mode='lines+markers', name='RPM'))
+    rpm_fig.update_layout(title='RPM del Motor', xaxis_title='Tiempo', yaxis_title='RPM', height=300)
+
+    vel_fig = go.Figure()
+    vel_fig.add_trace(go.Scatter(x=timestamps, y=vel_lineal_data, mode='lines+markers', name='Velocidad'))
+    vel_fig.update_layout(title='Velocidad Lineal', xaxis_title='Tiempo', yaxis_title='km/h', height=300)
+
+    gear_fig = go.Figure()
+    gear_fig.add_trace(go.Scatter(x=timestamps, y=gear_data, mode='lines+markers', name='Marcha'))
+    gear_fig.update_layout(title='Marcha', xaxis_title='Tiempo', yaxis_title='Gear', height=300)
+
+    return rpm_fig, vel_fig, gear_fig
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8050)
