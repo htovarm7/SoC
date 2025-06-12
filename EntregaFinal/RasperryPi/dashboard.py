@@ -15,6 +15,7 @@ topic_sub = "tractor/outputs"
 # Data containers
 rpm_data = []
 vel_lineal_data = []
+gear_data = []
 
 # MQTT Client Setup
 client = mqtt.Client()
@@ -28,7 +29,11 @@ def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
         rpm = data["rpm"]
-        vel_lineal = data["vel_lineal"]
+        vel_lineal = data["velocity"]  # Antes: data["vel_lineal"]
+        gear = data["gear"]
+        gear_data.append(gear)
+
+
         rpm_data.append(rpm)
         vel_lineal_data.append(vel_lineal)
 
@@ -38,32 +43,36 @@ def on_message(client, userdata, msg):
         with open(csv_path, "a", newline="") as file:
             writer = csv.writer(file)
             if write_header:
-                writer.writerow(["RPM", "Velocidad Lineal (m/s)"])
-            writer.writerow([rpm, vel_lineal])
+                writer.writerow(["RPM", "Velocidad Lineal (m/s)", "Gear"])
+            writer.writerow([rpm, vel_lineal, data["gear"]])  # También guardamos gear
+
         plot_data()
     except Exception as e:
         print("Error procesando mensaje:", e)
 
 def plot_data():
     plt.clf()
-    plt.subplot(2, 1, 1)
-    plt.plot(rpm_data, label="RPM")
+
+    plt.subplot(3, 1, 1)
+    plt.plot(rpm_data, label="RPM", color="blue")
     plt.xlabel("Mediciones")
     plt.ylabel("RPM")
     plt.legend()
 
-    plt.subplot(2, 1, 2)
-    plt.plot(vel_lineal_data, label="Vel. Lineal (m/s)")
+    plt.subplot(3, 1, 2)
+    plt.plot(vel_lineal_data, label="Vel. Lineal (m/s)", color="green")
     plt.xlabel("Mediciones")
     plt.ylabel("Vel. Lineal")
     plt.legend()
 
+    plt.subplot(3, 1, 3)
+    plt.plot(gear_data, label="Marcha", color="red", marker='o')
+    plt.xlabel("Mediciones")
+    plt.ylabel("Marcha")
+    plt.legend()
+
     plt.tight_layout()
     plt.pause(0.1)
-
-client.on_connect = on_connect
-client.on_message = on_message
-client.connect(broker_address, 1883, 60)
 
 def send_data():
     try:
