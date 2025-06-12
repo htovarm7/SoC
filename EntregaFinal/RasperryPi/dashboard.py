@@ -10,7 +10,7 @@ import threading
 # MQTT Configuration
 broker_address ="192.168.137.59"
 topic_pub = "tractor/inputs"
-topic_sub = "tractor/outputs"
+topic_sub = "tractor/data"  # Cambiado para que coincida con la ESP32
 
 # Data containers
 rpm_data = []
