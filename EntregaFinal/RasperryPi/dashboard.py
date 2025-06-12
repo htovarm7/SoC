@@ -7,7 +7,7 @@ import os
 import time
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plta
+import matplotlib.pyplot as plt
 
 # MQTT Configuration
 broker_address = "192.168.137.59"
