@@ -19,6 +19,9 @@ rpm_data = []
 vel_lineal_data = []
 gear_data = []
 
+# Variable para modo de control: True = manual (dashboard), False = automático (potenciómetro)
+manual_mode = tk.BooleanVar(value=True)
+
 # MQTT Client Setup
 client = mqtt.Client()
 
@@ -49,10 +52,25 @@ def on_message(client, userdata, msg):
             if write_header:
                 writer.writerow(["Timestamp", "RPM", "Velocidad Lineal (m/s)", "Gear"])
             writer.writerow([timestamp, rpm, vel_lineal, gear])
+
+        # Si está en modo automático, actualizar entradas con datos recibidos
+        if not manual_mode.get():
+            # Actualiza entradas de la GUI (esto refleja los valores recibidos)
+            entry_vel_angular.delete(0, tk.END)
+            entry_vel_angular.insert(0, str(round(vel_lineal, 3)))  # ejemplo: usa velocidad lineal para demo
+            entry_trans_ratio.delete(0, tk.END)
+            entry_trans_ratio.insert(0, str(gear))  # ejemplo: usa gear para demo
+            entry_wheel_radius.delete(0, tk.END)
+            entry_wheel_radius.insert(0, "0")  # o algún valor fijo / calculado
+
     except Exception as e:
         print("Error procesando mensaje:", e)
 
 def send_data():
+    if not manual_mode.get():
+        messagebox.showinfo("Modo Automático", "Actualmente en modo automático, no se pueden enviar datos manualmente.")
+        return
+
     try:
         vel_angular  = float(entry_vel_angular.get())
         trans_ratio  = float(entry_trans_ratio.get())
@@ -66,6 +84,20 @@ def send_data():
         print("Datos enviados:", payload)
     except ValueError:
         messagebox.showerror("Error", "Ingresa valores numéricos válidos")
+
+def toggle_mode():
+    if manual_mode.get():
+        send_button.config(state="normal")
+        # Opcional: limpiar o permitir editar entradas manualmente
+        entry_vel_angular.config(state="normal")
+        entry_trans_ratio.config(state="normal")
+        entry_wheel_radius.config(state="normal")
+    else:
+        send_button.config(state="disabled")
+        # En modo automático, bloquea edición para reflejar datos recibidos
+        entry_vel_angular.config(state="readonly")
+        entry_trans_ratio.config(state="readonly")
+        entry_wheel_radius.config(state="readonly")
 
 # Setup MQTT callbacks
 client.on_connect = on_connect
@@ -89,7 +121,13 @@ tk.Label(root, text="Radio de Rueda (m)").grid(row=2, column=0)
 entry_wheel_radius = tk.Entry(root)
 entry_wheel_radius.grid(row=2, column=1)
 
-tk.Button(root, text="Enviar", command=send_data).grid(row=3, column=0, columnspan=2, pady=10)
+send_button = tk.Button(root, text="Enviar", command=send_data)
+send_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+# Switch para modo manual/automático
+mode_switch = tk.Checkbutton(root, text="Modo Manual (Dashboard) / Automático (Potenciómetro)",
+                             variable=manual_mode, command=toggle_mode)
+mode_switch.grid(row=5, column=0, columnspan=2, pady=5)
 
 # Matplotlib Figure embedded in Tkinter
 fig = Figure(figsize=(6, 6))
@@ -138,6 +176,9 @@ def update_plot():
 
     # Llama esta función cada 100 ms para actualizar la gráfica
     root.after(100, update_plot)
+
+# Inicializa estado del switch para configurar UI
+toggle_mode()
 
 # Arranca la actualización periódica del gráfico
 root.after(100, update_plot)
