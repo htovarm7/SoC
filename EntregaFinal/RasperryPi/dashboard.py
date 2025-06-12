@@ -111,12 +111,21 @@ def update_plot():
     t_rel = [t - t0 for t in time_data[:n]]
 
     ax_rpm.clear(); ax_vel.clear(); ax_gear.clear()
+
     ax_rpm.plot(t_rel, rpm_data[:n], label="RPM", color='blue')
-    ax_rpm.set_ylabel("RPM"); ax_rpm.legend()
-    ax_vel.plot(t_rel, vel_lineal_data[:n], label="Vel. Lineal", color='green')
-    ax_vel.set_ylabel("m/s"); ax_vel.legend()
+    ax_rpm.set_title("RPM del Motor")
+    ax_rpm.set_ylabel("RPM")
+    ax_rpm.legend()
+
+    ax_vel.plot(t_rel, vel_lineal_data[:n], label="Velocidad Lineal", color='green')
+    ax_vel.set_title("Velocidad Lineal")
+    ax_vel.set_ylabel("m/s")
+    ax_vel.legend()
+
     ax_gear.plot(t_rel, gear_data[:n], label="Marcha", color='red', marker='o')
-    ax_gear.set_ylabel("Gear"); ax_gear.legend()
+    ax_gear.set_title("Marcha Actual")
+    ax_gear.set_ylabel("Gear")
+    ax_gear.legend()
 
     fig.tight_layout()
     canvas.draw()
