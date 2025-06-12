@@ -2,14 +2,14 @@ import paho.mqtt.client as mqtt
 import json
 
 broker_address = "192.168.137.59"
-topic_sub = "tractor/outputs"
+topic_sub = "tractor/data"  # Cambiado para que coincida con la ESP32
 
-def on_connect(client, userdata, flags, reason_code, properties):
-    if reason_code == 0:
+def on_connect(client, userdata, flags, rc, properties=None):
+    if rc == 0:
         print("✅ Conectado correctamente al broker MQTT.")
         client.subscribe(topic_sub)
     else:
-        print("❌ Fallo al conectar. Código de error:", reason_code)
+        print(f"❌ Fallo al conectar. Código de error: {rc}")
 
 def on_message(client, userdata, msg):
     print("\n📥 Mensaje recibido:")
@@ -19,7 +19,8 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("⚠️ Error al procesar mensaje:", e)
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client = mqtt.Client()
+
 client.on_connect = on_connect
 client.on_message = on_message
 
