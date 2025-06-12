@@ -8,6 +8,7 @@ import paho.mqtt.client as mqtt
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib import dates as mdates
 
 # === MQTT Setup ===
 broker_address = "localhost"
@@ -23,17 +24,18 @@ timestamps = []
 root = tk.Tk()
 root.title("Dashboard del Tractor")
 
-# Ahora sí podemos crear BooleanVar y demás
-modo_manual  = tk.BooleanVar(value=False)
-throttle_on  = tk.BooleanVar(value=False)
-brake_on     = tk.BooleanVar(value=False)
+# Variables de estado (requieren root ya creado)
+modo_manual = tk.BooleanVar(value=False)
+throttle_on = tk.BooleanVar(value=False)
+brake_on = tk.BooleanVar(value=False)
 
 # ---- Frame de controles ----
 ctrl_frame = ttk.Frame(root, padding=10)
 ctrl_frame.pack(side=tk.TOP, fill=tk.X)
 
 modo_chk = ttk.Checkbutton(
-    ctrl_frame, text="Modo Manual",
+    ctrl_frame,
+    text="Modo Manual",
     variable=modo_manual,
     command=lambda: (
         manual_frame.pack_forget()
@@ -46,13 +48,15 @@ modo_chk.pack(side=tk.LEFT, padx=5)
 # Frame de controles manuales (oculto inicialmente)
 manual_frame = ttk.Frame(root, padding=10, relief=tk.RIDGE)
 accel_chk = ttk.Checkbutton(
-    manual_frame, text="Acelerador",
+    manual_frame,
+    text="Acelerador",
     variable=throttle_on,
     command=lambda: publish_control()
 )
 accel_chk.pack(side=tk.LEFT, padx=10)
 brake_chk = ttk.Checkbutton(
-    manual_frame, text="Freno",
+    manual_frame,
+    text="Freno",
     variable=brake_on,
     command=lambda: publish_control()
 )
@@ -68,6 +72,9 @@ def create_plot(parent, title, ylabel):
     ax.set_title(title)
     ax.set_xlabel("Tiempo")
     ax.set_ylabel(ylabel)
+    # Formateo de eje X como tiempo
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    fig.autofmt_xdate()
     line, = ax.plot([], [], marker='o')
     canvas = FigureCanvasTkAgg(fig, master=parent)
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -88,7 +95,7 @@ def on_message(client, userdata, msg):
         rpm  = data.get("rpm")
         vl   = data.get("spd")
         gear = data.get("gear")
-        now  = datetime.now().strftime("%H:%M:%S")
+        now  = datetime.now()  # datetime object
         if rpm is not None and vl is not None and gear is not None:
             rpm_data.append(rpm)
             vel_lineal_data.append(vl)
@@ -117,18 +124,31 @@ def publish_control():
 
 # Actualizar gráficos cada segundo
 def update_graphs():
+    if not timestamps:
+        root.after(1000, update_graphs)
+        return
+
+    # Convertir timestamps a valores numéricos
+    x = mdates.date2num(timestamps)
+
     # RPM
-    rpm_line.set_data(timestamps, rpm_data)
-    rpm_ax.relim(); rpm_ax.autoscale_view()
+    rpm_line.set_data(x, rpm_data)
+    rpm_ax.set_xlim(x[0], x[-1])
+    rpm_ax.relim(); rpm_ax.autoscale_view(True, tight=True)
     rpm_canvas.draw()
+
     # Velocidad
-    vel_line.set_data(timestamps, vel_lineal_data)
-    vel_ax.relim(); vel_ax.autoscale_view()
+    vel_line.set_data(x, vel_lineal_data)
+    vel_ax.set_xlim(x[0], x[-1])
+    vel_ax.relim(); vel_ax.autoscale_view(True, tight=True)
     vel_canvas.draw()
+
     # Marcha
-    gear_line.set_data(timestamps, gear_data)
-    gear_ax.relim(); gear_ax.autoscale_view()
+    gear_line.set_data(x, gear_data)
+    gear_ax.set_xlim(x[0], x[-1])
+    gear_ax.relim(); gear_ax.autoscale_view(True, tight=True)
     gear_canvas.draw()
+
     root.after(1000, update_graphs)
 
 root.after(1000, update_graphs)
