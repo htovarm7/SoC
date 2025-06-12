@@ -72,6 +72,17 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("Error procesando mensaje:", e)
 
+def send_brake():
+    if not manual_mode.get():
+        messagebox.showinfo("Modo Automático", "Actualmente en modo automático, no se puede activar el freno manualmente.")
+        return
+
+    payload = {
+        "freno": True
+    }
+    client.publish(topic_pub, json.dumps(payload))
+    print("Freno activado:", payload)
+
 def send_data():
     if not manual_mode.get():
         messagebox.showinfo("Modo Automático", "Actualmente en modo automático, no se pueden enviar datos manualmente.")
@@ -130,6 +141,9 @@ entry_wheel_radius.grid(row=2, column=1)
 send_button = tk.Button(root, text="Enviar", command=send_data)
 send_button.grid(row=3, column=0, columnspan=2, pady=10)
 
+brake_button = tk.Button(root, text="Freno", command=send_brake)
+brake_button.grid(row=4, column=0, columnspan=2, pady=5)
+
 # Switch para modo manual/automático
 mode_switch = tk.Checkbutton(root, text="Modo Manual / Automático",
                              variable=manual_mode, command=toggle_mode)
@@ -142,7 +156,7 @@ ax_vel = fig.add_subplot(312)
 ax_gear = fig.add_subplot(313)
 
 canvas = FigureCanvasTkAgg(fig, master=root)
-canvas.get_tk_widget().grid(row=4, column=0, columnspan=2)
+canvas.get_tk_widget().grid(row=6, column=0, columnspan=2)
 
 def update_plot():
     if len(time_data) == 0:
