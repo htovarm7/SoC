@@ -7,6 +7,7 @@ import os
 import time
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plta
 
 # MQTT Configuration
 broker_address = "192.168.137.59"
@@ -102,36 +103,40 @@ canvas = FigureCanvasTkAgg(fig, master=root)
 canvas.get_tk_widget().grid(row=4, column=0, columnspan=2)
 
 def update_plot():
-    if len(time_data) > 0:
-        # Convierto timestamps a tiempo relativo para mejor visualización
-        t0 = time_data[0]
-        t_rel = [t - t0 for t in time_data]
-
-        ax_rpm.clear()
-        ax_vel.clear()
-        ax_gear.clear()
-
-        ax_rpm.plot(t_rel, rpm_data, label="RPM", color='blue')
-        ax_rpm.set_ylabel("RPM")
-        ax_rpm.legend()
-        ax_rpm.grid(True)
-
-        ax_vel.plot(t_rel, vel_lineal_data, label="Vel. Lineal (m/s)", color='green')
-        ax_vel.set_ylabel("Velocidad")
-        ax_vel.legend()
-        ax_vel.grid(True)
-
-        ax_gear.plot(t_rel, gear_data, label="Marcha", color='red', marker='o')
-        ax_gear.set_ylabel("Marcha")
-        ax_gear.legend()
-        ax_gear.grid(True)
-
-        ax_gear.set_xlabel("Tiempo (s)")
-
-        canvas.draw()
-
-    # Llama a esta función cada 500 ms para actualizar la gráfica
-    root.after(500, update_plot)
+    plt.clf()
+    
+    # Calcula la longitud mínima de todas las listas de datos
+    min_len = min(len(time_data), len(rpm_data), len(vel_lineal_data), len(gear_data))
+    
+    if min_len == 0:
+        return  # No hay datos aún, no graficar
+    
+    # Recorta las listas a la longitud mínima para que tengan el mismo tamaño
+    t_rel = [t - time_data[0] for t in time_data[:min_len]]
+    rpm_plot = rpm_data[:min_len]
+    vel_plot = vel_lineal_data[:min_len]
+    gear_plot = gear_data[:min_len]
+    
+    # Grafica RPM
+    plt.subplot(3, 1, 1)
+    plt.plot(t_rel, rpm_plot, label="RPM", color='blue')
+    plt.ylabel("RPM")
+    plt.legend()
+    
+    # Grafica Velocidad lineal
+    plt.subplot(3, 1, 2)
+    plt.plot(t_rel, vel_plot, label="Vel. Lineal (m/s)", color='green')
+    plt.ylabel("Velocidad")
+    plt.legend()
+    
+    # Grafica Marcha
+    plt.subplot(3, 1, 3)
+    plt.plot(t_rel, gear_plot, label="Marcha", color='red', marker='o')
+    plt.ylabel("Marcha")
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.pause(0.1)  # refresca la ventana
 
 update_plot()
 
