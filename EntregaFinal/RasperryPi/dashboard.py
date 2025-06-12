@@ -7,7 +7,6 @@ import os
 import time
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
 
 # MQTT Configuration
 broker_address = "192.168.137.59"
@@ -50,7 +49,6 @@ def on_message(client, userdata, msg):
             if write_header:
                 writer.writerow(["Timestamp", "RPM", "Velocidad Lineal (m/s)", "Gear"])
             writer.writerow([timestamp, rpm, vel_lineal, gear])
-
     except Exception as e:
         print("Error procesando mensaje:", e)
 
@@ -93,7 +91,7 @@ entry_wheel_radius.grid(row=2, column=1)
 
 tk.Button(root, text="Enviar", command=send_data).grid(row=3, column=0, columnspan=2, pady=10)
 
-# Matplotlib Figure
+# Matplotlib Figure embedded in Tkinter
 fig = Figure(figsize=(6, 6))
 ax_rpm = fig.add_subplot(311)
 ax_vel = fig.add_subplot(312)
@@ -103,43 +101,52 @@ canvas = FigureCanvasTkAgg(fig, master=root)
 canvas.get_tk_widget().grid(row=4, column=0, columnspan=2)
 
 def update_plot():
-    plt.clf()
-    
-    # Calcula la longitud mínima de todas las listas de datos
+    if len(time_data) == 0:
+        root.after(100, update_plot)
+        return
+
+    # Recorta para que todas las listas tengan la misma longitud
     min_len = min(len(time_data), len(rpm_data), len(vel_lineal_data), len(gear_data))
-    
     if min_len == 0:
-        return  # No hay datos aún, no graficar
-    
-    # Recorta las listas a la longitud mínima para que tengan el mismo tamaño
+        root.after(100, update_plot)
+        return
+
     t_rel = [t - time_data[0] for t in time_data[:min_len]]
     rpm_plot = rpm_data[:min_len]
     vel_plot = vel_lineal_data[:min_len]
     gear_plot = gear_data[:min_len]
-    
-    # Grafica RPM
-    plt.subplot(3, 1, 1)
-    plt.plot(t_rel, rpm_plot, label="RPM", color='blue')
-    plt.ylabel("RPM")
-    plt.legend()
-    
-    # Grafica Velocidad lineal
-    plt.subplot(3, 1, 2)
-    plt.plot(t_rel, vel_plot, label="Vel. Lineal (m/s)", color='green')
-    plt.ylabel("Velocidad")
-    plt.legend()
-    
-    # Grafica Marcha
-    plt.subplot(3, 1, 3)
-    plt.plot(t_rel, gear_plot, label="Marcha", color='red', marker='o')
-    plt.ylabel("Marcha")
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.pause(0.1)  # refresca la ventana
 
-update_plot()
+    # Limpia e inserta las gráficas
+    ax_rpm.clear()
+    ax_vel.clear()
+    ax_gear.clear()
 
-root.protocol("WM_DELETE_WINDOW", lambda: (client.loop_stop(), client.disconnect(), root.destroy()))
+    ax_rpm.plot(t_rel, rpm_plot, label="RPM", color='blue')
+    ax_rpm.set_ylabel("RPM")
+    ax_rpm.legend()
+    
+    ax_vel.plot(t_rel, vel_plot, label="Vel. Lineal (m/s)", color='green')
+    ax_vel.set_ylabel("Velocidad")
+    ax_vel.legend()
+    
+    ax_gear.plot(t_rel, gear_plot, label="Marcha", color='red', marker='o')
+    ax_gear.set_ylabel("Marcha")
+    ax_gear.legend()
 
+    fig.tight_layout()
+    canvas.draw()
+
+    # Llama esta función cada 100 ms para actualizar la gráfica
+    root.after(100, update_plot)
+
+# Arranca la actualización periódica del gráfico
+root.after(100, update_plot)
+
+# Cierre limpio
+def on_closing():
+    client.loop_stop()
+    client.disconnect()
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
 root.mainloop()
