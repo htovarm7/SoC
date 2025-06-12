@@ -11,20 +11,19 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib import dates as mdates
 
 # === MQTT Setup ===
-broker_address = "localhost"
-topic_sub = "tractor/data"
-topic_pub = "tractor/control"
+broker_address = "192.168.137.59"  # ← Cambiado a la IP de tu broker ESP32
+topic_sub      = "tractor/data"
+topic_pub      = "tractor/control"
 
-rpm_data = []
-vel_lineal_data = []
-gear_data = []
-timestamps = []
+rpm_data         = []
+vel_lineal_data  = []
+gear_data        = []
+timestamps       = []
 
 # === INTERFAZ TKINTER ===
 root = tk.Tk()
 root.title("Dashboard del Tractor")
 
-# Variables de estado
 modo_manual = tk.BooleanVar(value=False)
 throttle_on = tk.BooleanVar(value=False)
 brake_on    = tk.BooleanVar(value=False)
@@ -32,7 +31,6 @@ brake_on    = tk.BooleanVar(value=False)
 # ---- Controles ----
 ctrl_frame = ttk.Frame(root, padding=10)
 ctrl_frame.pack(fill=tk.X)
-
 ttk.Checkbutton(
     ctrl_frame, text="Modo Manual",
     variable=modo_manual,
@@ -61,11 +59,10 @@ plots_frame.pack(fill=tk.BOTH, expand=True)
 
 def create_plot(parent, title, ylabel):
     fig = Figure(figsize=(5,3), dpi=100)
-    ax = fig.add_subplot(111)
+    ax  = fig.add_subplot(111)
     ax.set_title(title)
     ax.set_xlabel("Tiempo")
     ax.set_ylabel(ylabel)
-    # Etiquetas de fecha
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     fig.autofmt_xdate()
     line, = ax.plot([], [], marker='o')
@@ -78,27 +75,24 @@ vel_ax,  vel_line,  vel_canvas  = create_plot(plots_frame, "Velocidad Lineal","k
 gear_ax, gear_line, gear_canvas = create_plot(plots_frame, "Marcha",           "Gear")
 
 # === MQTT Callbacks ===
-def on_connect(client, userdata, flags, rc):
-    print("✅ Conectado al broker MQTT con código:", rc)
+def on_connect(client, userdata, flags, rc, properties=None):
+    print(f"✅ Conectado al broker MQTT [{broker_address}] con código: {rc}")
     client.subscribe(topic_sub)
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
         if all(k in data for k in ("rpm","spd","gear")):
-            rpm = data["rpm"]
-            vl  = data["spd"]
-            g   = data["gear"]
             now = datetime.now()
-            rpm_data.append(rpm)
-            vel_lineal_data.append(vl)
-            gear_data.append(g)
+            rpm_data.append(data["rpm"])
+            vel_lineal_data.append(data["spd"])
+            gear_data.append(data["gear"])
             timestamps.append(now)
-            print(f"🕒 Recibido @ {now.strftime('%H:%M:%S')}: rpm={rpm}, spd={vl}, gear={g}")
+            print(f"🕒 {now.strftime('%H:%M:%S')} → rpm={data['rpm']}, spd={data['spd']}, gear={data['gear']}")
     except Exception as e:
-        print("⚠ Error al procesar mensaje:", e)
+        print("⚠ Error on_message:", e)
 
-client = mqtt.Client()
+client = mqtt.Client(protocol=mqtt.MQTTv311)
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(broker_address, 1883, 60)
@@ -118,10 +112,8 @@ def publish_control():
         print("📤 Publicado control:", payload)
 
 def update_graphs():
-    # Debug: ver si se llama
-    print(f"🔄 update_graphs llamado. Datos registrados: {len(timestamps)} puntos.")
+    print(f"🔄 update_graphs llamado. Puntos recibidos: {len(timestamps)}")
     if timestamps:
-        # Convertir a números de Matplotlib
         x = mdates.date2num(timestamps)
 
         # RPM
@@ -142,9 +134,7 @@ def update_graphs():
         gear_ax.relim(); gear_ax.autoscale_view(True, tight=True)
         gear_canvas.draw()
 
-    # Volver a llamar
     root.after(1000, update_graphs)
 
-# Iniciar update loop
 root.after(1000, update_graphs)
 root.mainloop()
