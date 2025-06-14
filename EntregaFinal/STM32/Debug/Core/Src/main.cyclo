@@ -1,0 +1,9 @@
+../Core/Src/main.c:49:5:main	1
+../Core/Src/main.c:72:6:StartTask1	2
+../Core/Src/main.c:90:6:StartTask2	1
+../Core/Src/main.c:110:6:StartTask3	1
+../Core/Src/main.c:120:6:StartTask4	2
+../Core/Src/main.c:136:6:System_init	1
+../Core/Src/main.c:149:6:USART1_IRQHandler	6
+../Core/Src/main.c:187:6:USER_GPIO_Init	1
+../Core/Src/main.c:202:6:USER_RCC_Init	3

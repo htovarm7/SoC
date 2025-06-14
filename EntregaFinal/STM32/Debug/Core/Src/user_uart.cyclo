@@ -1,0 +1,5 @@
+../Core/Src/user_uart.c:6:6:USER_UART1_Init	1
+../Core/Src/user_uart.c:31:6:USER_UART2_Init	1
+../Core/Src/user_uart.c:58:5:_write	3
+../Core/Src/user_uart.c:68:13:USER_UART1_Send_8bit	2
+../Core/Src/user_uart.c:73:6:USER_UART1_Transmit	2
